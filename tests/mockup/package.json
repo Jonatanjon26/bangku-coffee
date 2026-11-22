@@ -1,0 +1,11 @@
+{
+    "name": "bangku-coffee-mockup-tests",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "test": "node touch.mjs && node flow.mjs && node shift.mjs && node admin.mjs && node xss.mjs"
+    },
+    "devDependencies": {
+        "playwright": "1.56.1"
+    }
+}

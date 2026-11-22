@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: bangku-coffee-pos
+    runtime: docker
+    plan: free
+    autoDeploy: true
+    envVars:
+      - key: APP_NAME
+        value: "Bangku Coffee"
+      - key: APP_ENV
+        value: local
+      - key: APP_DEBUG
+        value: "false"
+      - key: DB_CONNECTION
+        value: sqlite
+      - key: ADMIN_NAME
+        value: Owner
+      - key: ADMIN_EMAIL
+        value: owner@bangkucoffee.id
+      - key: ADMIN_PASSWORD
+        value: BangkuOwner2026
+      - key: SESSION_DRIVER
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: database

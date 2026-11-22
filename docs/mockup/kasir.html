@@ -1,0 +1,2099 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kasir · Bangku Coffee</title>
+<style>
+/*
+ * Mockup tampilan kasir Bangku Coffee.
+ * Gaya mengikuti tema panel (mehuli/filament-shadcn, gaya nova) dengan warna utama cokelat kopi.
+ * Data & aturan dari shared/config.js (diatur di admin.html). Tanpa internet. Cetak: Web Bluetooth (Chrome/Edge, printer BLE) → ESC/POS 58 mm (32 kolom),
+ * cadangan: RawBT (Android) atau dialog cetak browser.
+ */
+:root {
+    --background: #ffffff;
+    --foreground: #1c1917;
+    --card: #ffffff;
+    --muted: #f5f5f4;
+    --muted-foreground: #78716c;
+    --border: #e7e5e4;
+    --input: #e7e5e4;
+    --primary: #6f4e37;
+    --primary-foreground: #fffaf5;
+    --accent: #f5efe9;
+    --ring: #a8866b;
+    --destructive: #dc2626;
+    --success: #15803d;
+    --sidebar: #fafaf9;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --shadow-xs: 0 1px 2px rgba(28, 25, 23, 0.05);
+    --font: 'Geist', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+    /* Target sentuh minimal (Android: 48dp). Semua kontrol >= --tap-min. */
+    --tap: 48px;
+    --tap-min: 44px;
+}
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+    --background: #0c0a09;
+    --foreground: #fafaf9;
+    --card: #161412;
+    --muted: #1f1c1a;
+    --muted-foreground: #a8a29e;
+    --border: #2b2724;
+    --input: #3a3531;
+    --primary: #c69c6d;
+    --primary-foreground: #1c1410;
+    --accent: #2a221c;
+    --sidebar: #110f0e;
+    }
+}
+:root[data-theme="dark"] {
+    --background: #0c0a09;
+    --foreground: #fafaf9;
+    --card: #161412;
+    --muted: #1f1c1a;
+    --muted-foreground: #a8a29e;
+    --border: #2b2724;
+    --input: #3a3531;
+    --primary: #c69c6d;
+    --primary-foreground: #1c1410;
+    --accent: #2a221c;
+    --sidebar: #110f0e;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+    margin: 0;
+    background: var(--sidebar);
+    color: var(--foreground);
+    font: 15px/1.45 var(--font);
+    -webkit-font-smoothing: antialiased;
+    /* Tablet: tanpa tarik-untuk-muat-ulang (pesanan bisa hilang) dan tanpa zoom ketuk-dua-kali. */
+    overscroll-behavior: none;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+button:active:not([disabled]) { transform: scale(.97); }
+:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+/* ---------- tata letak ---------- */
+.app { display: grid; grid-template-rows: auto 1fr; grid-template-columns: minmax(0, 1fr); height: 100dvh; }
+.topbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px; background: var(--sidebar);
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+.brand-icon {
+    width: 32px; height: 32px; border-radius: var(--radius-sm);
+    display: grid; place-items: center; background: var(--primary); color: var(--primary-foreground);
+}
+.brand small { display: block; font-weight: 400; color: var(--muted-foreground); font-size: 12px; line-height: 1.2; }
+.topbar .spacer { flex: 1; }
+.chip {
+    display: inline-flex; align-items: center; gap: 6px; height: var(--tap-min); padding: 0 12px;
+    border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--background);
+    font-size: 13px; font-weight: 500; white-space: nowrap;
+}
+.chip .dot { width: 8px; height: 8px; border-radius: 999px; background: #a8a29e; flex: none; }
+#printer-label { overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+.topbar { min-width: 0; }
+.brand { min-width: 0; }
+.brand > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip.ok .dot { background: #16a34a; }
+.chip.busy .dot { background: #ca8a04; }
+.icon-btn {
+    width: var(--tap-min); height: var(--tap-min); display: grid; place-items: center; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: var(--background);
+}
+.icon-btn:hover, .chip:hover { background: var(--accent); }
+svg.i { width: 18px; height: 18px; flex: none; }
+
+.main {
+    display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 8px;
+    padding: 0 8px 8px; min-height: 0;
+}
+.panel {
+    min-width: 0;
+    background: var(--background); border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: var(--shadow-xs); min-height: 0; display: flex; flex-direction: column;
+}
+
+/* ---------- menu ---------- */
+.menu-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 14px 16px 10px; }
+.tabs { display: flex; gap: 2px; padding: 3px; border-radius: var(--radius-sm); background: var(--muted); overflow-x: auto; max-width: 100%; }
+.tab {
+    height: var(--tap-min); padding: 0 16px; border: 0; border-radius: 5px; background: transparent;
+    color: var(--muted-foreground); font-weight: 500; white-space: nowrap;
+}
+.tab[aria-selected='true'] { background: var(--background); color: var(--foreground); box-shadow: var(--shadow-xs); }
+.search {
+    flex: 1; min-width: 180px; display: flex; align-items: center; gap: 8px; height: var(--tap); padding: 0 12px;
+    border: 1px solid var(--input); border-radius: var(--radius-sm); background: var(--background); color: var(--muted-foreground);
+}
+.search input { border: 0; outline: 0; background: transparent; flex: 1; min-width: 0; height: 100%; color: var(--foreground); }
+.grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px;
+    padding: 4px 16px 16px; overflow-y: auto; align-content: start;
+}
+.item {
+    display: flex; flex-direction: column; text-align: left; gap: 8px; padding: 10px;
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--card);
+    box-shadow: var(--shadow-xs); transition: border-color .15s, transform .05s;
+}
+.item:hover { border-color: var(--ring); }
+.item:active { transform: scale(.98); }
+.thumb {
+    aspect-ratio: 4 / 3; border-radius: var(--radius-sm); display: grid; place-items: center;
+    font-size: 30px; background: var(--accent);
+}
+.item-name { font-weight: 500; line-height: 1.25; }
+.item-meta { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 4px 6px; }
+.price { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.badge {
+    display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border-radius: 6px;
+    border: 1px solid var(--border); font-size: 11px; font-weight: 500; color: var(--muted-foreground);
+}
+.item[disabled] { opacity: .5; cursor: not-allowed; }
+.empty { padding: 40px 16px; text-align: center; color: var(--muted-foreground); }
+
+/* ---------- pesanan ---------- */
+.order-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--border); display: grid; gap: 10px; }
+.order-title { display: flex; justify-content: space-between; align-items: center; }
+.order-title h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.order-title span { color: var(--muted-foreground); font-size: 12px; font-family: var(--mono); margin-inline-start: auto; margin-inline-end: 8px; }
+.order-close { display: none; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; gap: 2px; border-radius: var(--radius-sm); background: var(--muted); }
+.seg button { white-space: nowrap; padding: 0 8px; height: var(--tap-min); border: 0; border-radius: 5px; background: transparent; color: var(--muted-foreground); font-weight: 500; }
+.seg button[aria-pressed='true'] { background: var(--background); color: var(--foreground); box-shadow: var(--shadow-xs); }
+.field { display: flex; gap: 8px; }
+.input {
+    height: var(--tap); width: 100%; padding: 0 10px; border: 1px solid var(--input); border-radius: var(--radius-sm);
+    background: var(--background);
+}
+.lines { flex: 1; overflow-y: auto; padding: 6px 8px; min-height: 120px; }
+.line { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 10px 8px; border-radius: var(--radius-sm); }
+/* Ketuk nama/pilihan untuk mengubah varian. */
+.line-main { display: grid; gap: 2px; align-content: start; min-height: var(--tap); padding: 0; border: 0; background: none; text-align: left; }
+.line-main:active { background: var(--accent); }
+.line + .line { border-top: 1px solid var(--border); border-radius: 0; }
+.line-name { font-weight: 500; }
+.line-opts { grid-column: 1; color: var(--muted-foreground); font-size: 12px; }
+.line-total { font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.qty { display: flex; align-items: center; gap: 8px; justify-self: end; }
+.qty button { width: var(--tap-min); height: var(--tap-min); border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--background); display: grid; place-items: center; font-size: 20px; font-weight: 500; }
+.qty output { min-width: 24px; text-align: center; font-weight: 600; font-size: 16px; font-variant-numeric: tabular-nums; }
+.line-right { display: grid; justify-items: end; gap: 6px; }
+.line-edit { grid-column: 1; justify-self: start; border: 0; background: none; padding: 0; font-size: 12px; color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
+
+.summary { border-top: 1px solid var(--border); padding: 12px 16px; display: grid; gap: 6px; font-variant-numeric: tabular-nums; }
+.row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.row.muted { color: var(--muted-foreground); }
+.row.total { font-size: 18px; font-weight: 700; padding-top: 4px; }
+.link { border: 0; background: none; padding: 0; color: var(--primary); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
+.row .pill {
+    height: var(--tap-min); padding: 0 16px; border-radius: 999px; border: 1px solid var(--border);
+    background: var(--background); color: var(--foreground); font-weight: 500; font-size: 13px;
+}
+
+.pay { padding: 0 16px 16px; display: grid; gap: 10px; }
+.methods { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.method {
+    height: var(--tap); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--background);
+    font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.method[aria-pressed='true'] { border-color: var(--primary); background: var(--accent); color: var(--primary); }
+.cash { display: grid; gap: 6px; }
+.quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.quick button { white-space: nowrap; height: var(--tap-min); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--background); font-size: 13px; font-weight: 500; }
+.change { display: flex; justify-content: space-between; font-weight: 600; color: var(--success); }
+.change.short { color: var(--destructive); }
+.actions { display: grid; grid-template-columns: auto 1fr; gap: 10px; padding: 0 16px 16px; }
+.actions .btn { height: 56px; font-size: 16px; }
+.actions .btn:first-child { width: 56px; }
+.btn {
+    height: var(--tap); min-width: var(--tap); padding: 0 14px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+    background: var(--background); font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn:hover { background: var(--accent); }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
+.btn-primary:hover { background: var(--primary); filter: brightness(1.08); }
+.btn[disabled] { opacity: .5; cursor: not-allowed; filter: none; }
+
+/* ---------- dialog ---------- */
+dialog {
+    border: 1px solid var(--border); border-radius: 14px; padding: 0; width: min(440px, calc(100vw - 24px));
+    background: var(--background); color: var(--foreground); box-shadow: 0 20px 50px rgba(0,0,0,.2);
+}
+dialog::backdrop { background: rgba(12, 10, 9, .45); }
+.dlg-head { padding: 16px 18px 6px; display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+.dlg-head h3 { margin: 0; font-size: 16px; }
+.dlg-head p { margin: 2px 0 0; color: var(--muted-foreground); font-size: 13px; }
+.dlg-body { padding: 8px 18px 16px; display: grid; gap: 14px; max-height: 70dvh; overflow-y: auto; }
+.dlg-foot { padding: 12px 18px 16px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--border); }
+.opt-group { display: grid; gap: 6px; }
+.opt-group > span { font-weight: 500; font-size: 13px; }
+.opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.opt {
+    min-height: var(--tap); padding: 0 16px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--background); font-weight: 500; font-size: 13px;
+}
+.opt[aria-pressed='true'] { border-color: var(--primary); background: var(--accent); color: var(--primary); }
+.opt small { color: var(--muted-foreground); font-weight: 400; margin-left: 4px; }
+
+/* ---------- keypad ---------- */
+.keypad-dlg { width: min(360px, calc(100vw - 24px)); }
+.keypad-display {
+    display: block; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--muted);
+    font-size: 30px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; min-height: 64px;
+}
+.keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.keypad button {
+    height: 60px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--background);
+    font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.keypad button:active { background: var(--accent); }
+[data-keypad] { cursor: pointer; caret-color: transparent; }
+
+/* ---------- struk 57 mm ---------- */
+.receipt-wrap { display: grid; place-items: center; padding: 14px; border-radius: var(--radius); background: var(--muted); }
+.receipt {
+    /* Pratinjau: tepat 32 kolom (printer 58 mm, font A 12x24 = 48 mm area cetak). */
+    width: calc(var(--cols, 32) * 1ch + 24px); padding: 14px 12px; background: #fff; color: #111;
+    font: 12px/1.4 var(--mono); white-space: pre; box-shadow: 0 1px 3px rgba(0,0,0,.15); border-radius: 2px;
+}
+.receipt .big { font-weight: 700; font-size: 24px; line-height: 1.25; }   /* 2× lebar & tinggi, sama dengan printer */
+.receipt .big-c { font-weight: 700; display: inline-block; transform: scaleY(1.7); margin: 4px 0; }  /* 2× tinggi */
+.receipt .b { font-weight: 700; }
+.print-note { font-size: 12px; color: var(--muted-foreground); line-height: 1.5; }
+.print-note b { color: var(--foreground); }
+.toast {
+    /* Di atas: jangan menutupi tombol Bayar di bawah. */
+    position: fixed; left: 50%; top: 12px; transform: translateX(-50%); z-index: 60; max-width: calc(100vw - 32px);
+    padding: 10px 14px; border-radius: var(--radius-sm); background: var(--foreground); color: var(--background);
+    font-weight: 500; box-shadow: 0 10px 30px rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+.toast.show { opacity: 1; }
+
+/* ---------- ponsel/tablet potret: pesanan jadi laci bawah ---------- */
+.cart-bar { display: none; }
+/* Layar pendek (mis. Galaxy Tab A9 mendatar, 533px): panel pesanan bisa digeser,
+   baris tombol Bayar menempel di bawah supaya selalu terlihat. */
+@media (max-height: 680px) and (min-width: 700px) {
+    .order { overflow-y: auto; }
+    .lines { flex: none; overflow: visible; min-height: auto; }
+    .order > .actions {
+        position: sticky; bottom: 0; z-index: 2; padding: 10px 16px 12px;
+        background: var(--background); border-top: 1px solid var(--border); border-radius: 0 0 12px 12px;
+    }
+}
+
+/* Tablet tegak / kecil (700–1023px): dua kolom, panel pesanan lebih ramping. */
+@media (max-width: 1023px) and (min-width: 700px) {
+    .main { grid-template-columns: minmax(0, 1fr) 340px; }
+    .grid { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; }
+    .menu-head { padding: 12px 12px 8px; }
+    .grid { padding: 4px 12px 12px; }
+    .tabs { flex: 1 1 100%; min-width: 0; }
+}
+/* Ponsel & tablet kecil tegak (< 700px): pesanan jadi laci bawah. */
+@media (max-width: 699px) {
+    .main { grid-template-columns: minmax(0, 1fr); }
+    .tabs { flex: 1 1 100%; min-width: 0; }
+    .order { position: fixed; inset: auto 0 0 0; z-index: 40; max-height: 92dvh; border-radius: 16px 16px 0 0; transform: translateY(105%); transition: transform .25s; }
+    .order.open { transform: none; box-shadow: 0 -10px 40px rgba(0,0,0,.25); }
+    .cart-bar {
+        display: flex; position: fixed; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 30;
+        justify-content: space-between; align-items: center; height: 52px; padding: 0 16px;
+        border-radius: 12px; border: 0; background: var(--primary); color: var(--primary-foreground); font-weight: 600;
+    }
+    .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); padding-bottom: 80px; }
+    .topbar .hide-sm { display: none; }
+    .order-close { display: grid; }
+    .topbar { gap: 8px; padding: 8px; }
+    #printer-label { max-width: 96px; }
+}
+
+/* ---------- cetak lewat dialog browser (cadangan) ---------- */
+@media print {
+    @page { size: 57mm auto; margin: 0; }
+    body { background: #fff; }
+    body > *:not(#print-area) { display: none !important; }
+    #print-area { display: block !important; }
+    /* 32 kolom pas di 48 mm: 1ch ≈ 0,6em → ukuran huruf = 48mm / 32 / 0,6. */
+    #print-area .receipt { width: 48mm; padding: 2mm 0; margin: 0 auto; box-shadow: none; font-size: calc(48mm / var(--cols, 32) / 0.6); }
+}
+#print-area { display: none; }
+
+/* ---------- mode cepat: antrean, nama wajib, bayar, kembalian, tersimpan ---------- */
+.queue { display: flex; align-items: baseline; gap: 8px; }
+.queue b { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+.queue span { color: var(--muted-foreground); font-size: 12px; font-family: var(--mono); }
+.held-btn { height: var(--tap-min); padding: 0 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--background); font-weight: 500; font-size: 13px; white-space: nowrap; }
+.held-btn b { display: inline-grid; place-items: center; min-width: 20px; height: 20px; margin-left: 4px; padding: 0 6px; border-radius: 999px; background: var(--primary); color: var(--primary-foreground); font-size: 11px; }
+.name-field { display: grid; gap: 4px; }
+.name-field .input { font-weight: 600; }
+.name-field .input::placeholder { font-weight: 400; }
+.name-field.invalid .input { border-color: var(--destructive); box-shadow: 0 0 0 3px color-mix(in oklab, var(--destructive) 18%, transparent); }
+.name-field .hint { display: none; color: var(--destructive); font-size: 12px; font-weight: 500; }
+.name-field.invalid .hint { display: block; }
+@keyframes shake { 0%, 100% { transform: none; } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+.name-field.invalid { animation: shake .25s; }
+.actions.three { grid-template-columns: 56px auto 1fr; }
+.actions #checkout { white-space: nowrap; padding: 0 12px; }
+@media (max-width: 1023px) { .actions #checkout svg { display: none; } }
+.badge-late { color: #a16207; border-color: color-mix(in oklab, #ca8a04 40%, transparent); }
+.badge-printed { color: var(--success); border-color: color-mix(in oklab, var(--success) 35%, transparent); }
+
+.pay-dlg { width: min(520px, calc(100vw - 24px)); }
+.pay-total { display: grid; gap: 2px; text-align: center; padding: 12px; border-radius: var(--radius); background: var(--muted); }
+.pay-total span { color: var(--muted-foreground); font-size: 13px; }
+.pay-total b { font-size: 34px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.edc-note { margin: 0; text-align: center; font-size: 15px; }
+.cash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+.cash-side { display: grid; gap: 8px; }
+.cash-side .quick { grid-template-columns: 1fr 1fr; }
+.cash-side .quick button { height: 52px; font-size: 15px; }
+.received { display: grid; gap: 2px; padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+.received span { color: var(--muted-foreground); font-size: 12px; }
+.received b { font-size: 24px; font-variant-numeric: tabular-nums; }
+.change-live { display: grid; gap: 2px; padding: 12px; border-radius: var(--radius); background: color-mix(in oklab, var(--success) 12%, var(--background)); color: var(--success); }
+.change-live span { font-size: 13px; font-weight: 600; }
+.change-live b { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.change-live.short { background: color-mix(in oklab, var(--destructive) 10%, var(--background)); color: var(--destructive); }
+.pay-dlg .keypad button { height: 52px; }
+.banks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.banks .opt { padding: 0 8px; }
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: var(--tap); padding: 4px 0; border: 0; background: none; font-weight: 500; text-align: left; }
+.switch { position: relative; width: 52px; height: 30px; border-radius: 999px; border: 0; background: var(--input); flex: none; transition: background .15s; }
+.switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 999px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .15s; }
+[aria-checked='true'] > .switch { background: var(--primary); }
+[aria-checked='true'] > .switch::after { transform: translateX(22px); }
+
+.change-dlg { width: min(560px, calc(100vw - 24px)); text-align: center; }
+.change-dlg .dlg-body { padding: 28px 24px 8px; gap: 8px; }
+.change-label { font-size: 18px; font-weight: 600; color: var(--muted-foreground); }
+.change-amount { font-size: clamp(44px, 9vw, 72px); font-weight: 800; letter-spacing: -0.03em; color: var(--success); font-variant-numeric: tabular-nums; line-height: 1.05; }
+.change-meta { color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+.change-status { font-size: 13px; color: var(--muted-foreground); }
+.change-dlg .btn-primary { height: 64px; font-size: 18px; flex: 1; }
+
+.held-list { display: grid; gap: 8px; }
+.held-item { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--background); text-align: left; min-height: 64px; }
+.held-item b { font-size: 16px; }
+.held-item span { color: var(--muted-foreground); font-size: 13px; }
+.held-item .amt { font-weight: 700; color: var(--foreground); font-size: 15px; text-align: right; }
+
+.toast { display: flex; align-items: center; gap: 12px; pointer-events: auto; }
+.toast:not(.show) { pointer-events: none; }
+.toast button { height: var(--tap-min); padding: 0 12px; border-radius: var(--radius-sm); border: 1px solid color-mix(in oklab, var(--background) 40%, transparent); background: transparent; color: inherit; font-weight: 600; }
+.qty-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.qty-row .qty button { width: var(--tap); height: var(--tap); }
+/* Layar pendek (Tab A9 mendatar): dialog bayar ringkas supaya kembalian & tombol tetap terlihat. */
+@media (max-height: 640px) {
+    dialog { max-height: calc(100dvh - 16px); }
+    dialog .dlg-body { max-height: calc(100dvh - 160px); padding-bottom: 8px; }
+    .dlg-head { padding-top: 10px; }
+    .dlg-foot { padding: 8px 18px 10px; }
+    .pay-total { padding: 6px 10px; grid-template-columns: auto 1fr; align-items: baseline; text-align: left; }
+    .pay-total b { font-size: 26px; text-align: right; }
+    .pay-dlg .keypad { gap: 8px; }
+    .pay-dlg .keypad button, .cash-side .quick button { height: 44px; }
+    .cash-side { gap: 6px; }
+    .received { padding: 6px 10px; }
+    .received b { font-size: 20px; }
+    .change-live { padding: 8px 10px; }
+    .change-live b { font-size: 24px; }
+}
+@media (max-width: 559px) {
+    .cash-grid { grid-template-columns: 1fr; }
+    .banks { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ---------- shift: buka, kas masuk/keluar, tutup ---------- */
+.shift-dlg { width: min(720px, calc(100vw - 24px)); }
+.denoms { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 20px; }
+.denom { display: grid; grid-template-columns: 1fr auto auto auto; align-items: center; gap: 6px; }
+.denom .lbl { font-weight: 600; font-variant-numeric: tabular-nums; }
+.denom .lbl small { display: block; color: var(--muted-foreground); font-weight: 400; font-size: 12px; }
+.denom .pm, .denom .n { height: var(--tap); border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--background); font-variant-numeric: tabular-nums; }
+.denom .pm { width: var(--tap); font-size: 20px; }
+.denom .n { min-width: 56px; font-size: 17px; font-weight: 700; border-color: var(--input); }
+.denom.coins { grid-template-columns: 1fr auto; }
+.denom.coins .money-btn { width: calc(var(--tap) * 2 + 68px); }
+.money-btn { height: var(--tap); width: 100%; padding: 0 12px; text-align: right; border: 1px solid var(--input); border-radius: var(--radius-sm); background: var(--background); font-weight: 700; font-variant-numeric: tabular-nums; }
+.money-btn.empty-val { color: var(--muted-foreground); font-weight: 500; }
+.money-out { height: var(--tap); display: flex; align-items: center; justify-content: flex-end; padding: 0 12px; border-radius: var(--radius-sm); background: var(--muted); font-weight: 800; font-size: 18px; font-variant-numeric: tabular-nums; }
+.count-total { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--radius); background: var(--muted); }
+.count-total span { font-weight: 600; }
+.count-total small { display: block; font-weight: 500; font-size: 12px; color: var(--destructive); }
+.count-total b { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.handover { padding: 10px 12px; border-radius: var(--radius-sm); background: var(--accent); font-size: 14px; }
+.muted-note { margin: 0; color: var(--muted-foreground); font-size: 13px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.stat { padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.stat span { display: block; font-size: 12px; color: var(--muted-foreground); }
+.stat b { font-size: 18px; font-variant-numeric: tabular-nums; }
+.kv { display: grid; gap: 6px; font-variant-numeric: tabular-nums; }
+.kv > div { display: flex; justify-content: space-between; gap: 12px; }
+.kv > div > :first-child { min-width: 0; }
+.kv > div > :last-child { white-space: nowrap; }
+.kv .total { font-weight: 700; border-top: 1px solid var(--border); padding-top: 6px; }
+.variance { display: grid; gap: 2px; padding: 12px; border-radius: var(--radius); text-align: center; font-weight: 600; }
+.variance b { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.variance.ok { background: color-mix(in oklab, var(--success) 12%, var(--background)); color: var(--success); }
+.variance.short { background: color-mix(in oklab, var(--destructive) 10%, var(--background)); color: var(--destructive); }
+.variance.over { background: color-mix(in oklab, #ca8a04 14%, var(--background)); color: #a16207; }
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.steps { font-size: 12px; color: var(--muted-foreground); white-space: nowrap; padding-top: 2px; }
+.pin-display { letter-spacing: .4em; text-align: center; }
+.pin-error { margin: 0; text-align: center; color: var(--destructive); font-weight: 600; }
+.edc-table { display: grid; gap: 8px; }
+.edc-row { display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 8px; align-items: center; font-variant-numeric: tabular-nums; }
+.edc-row.head { font-size: 12px; color: var(--muted-foreground); }
+.edc-row .diff { grid-column: 2 / -1; font-size: 12px; font-weight: 600; text-align: right; }
+.edc-row .diff.bad { color: var(--destructive); }
+.edc-row .diff.good { color: var(--success); }
+.kas-dlg { width: min(460px, calc(100vw - 24px)); }
+.kas-dlg .keypad button { height: 52px; }
+#shift-chip.ok .dot { background: #16a34a; }
+.topbar .icon-btn, #shift-chip { flex: none; }
+#printer-chip { min-width: 0; flex: 0 1 auto; }
+@media (max-width: 559px) {
+    .denoms, .split { grid-template-columns: 1fr; }
+}
+
+/* ---------- pelanggan ---------- */
+.name-field { position: relative; }
+.name-row { display: flex; gap: 8px; }
+.name-row .icon-btn { width: var(--tap); height: var(--tap); flex: none; }
+.suggest { position: absolute; left: 0; right: 0; top: calc(var(--tap) + 4px); z-index: 5; display: grid; padding: 4px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--background); box-shadow: 0 10px 30px rgba(0,0,0,.15); }
+.suggest button { display: grid; gap: 1px; min-height: var(--tap); padding: 6px 10px; border: 0; border-radius: var(--radius-sm); background: none; text-align: left; }
+.suggest button:hover, .suggest button:focus-visible { background: var(--accent); }
+.suggest span { font-size: 12px; color: var(--muted-foreground); }
+.cust-tag { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 0 0 10px; border-radius: var(--radius-sm); background: var(--accent); font-size: 13px; }
+.cust-tag span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.link-btn { min-height: var(--tap-min); min-width: var(--tap-min); padding: 0 12px; border: 0; background: none; color: var(--primary); font-weight: 600; }
+
+.order-title .queue span { margin: 0; }
+.order-title .held-btn { margin-inline-start: auto; }
+</style>
+</head>
+<body>
+<div class="app">
+    <header class="topbar">
+        <div class="brand">
+            <span class="brand-icon" aria-hidden="true">
+                <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><path d="M6 2v2M10 2v2M14 2v2"/></svg>
+            </span>
+            <span><span data-store-name>Bangku Coffee</span><small>Kasir · <span id="cashier">Rani</span></small></span>
+        </div>
+        <span class="spacer"></span>
+        <span class="chip hide-sm" title="Waktu sekarang"><span id="clock">--:--</span></span>
+        <button class="chip" id="shift-chip" type="button" title="Shift: kas masuk/keluar, tutup shift">
+            <span class="dot"></span><span id="shift-label">Shift tutup</span>
+        </button>
+        <button class="chip" id="printer-chip" type="button" title="Hubungkan printer Bluetooth">
+            <span class="dot"></span><span id="printer-label">Printer belum terhubung</span>
+        </button>
+        <button class="icon-btn" id="theme" type="button" aria-label="Ganti tema terang/gelap">
+            <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        </button>
+        <button class="icon-btn" id="lock-btn" type="button" aria-label="Kunci kasir / ganti kasir" title="Kunci kasir / ganti kasir">
+            <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        </button>
+    </header>
+
+    <main class="main">
+        <section class="panel" aria-label="Menu">
+            <div class="menu-head">
+                <div class="tabs" role="tablist" id="tabs"></div>
+                <label class="search">
+                    <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                    <input id="q" type="search" placeholder="Cari menu…" autocomplete="off" aria-label="Cari menu">
+                </label>
+            </div>
+            <div class="grid" id="grid"></div>
+        </section>
+
+        <aside class="panel order" id="order" aria-label="Pesanan">
+            <div class="order-head">
+                <div class="order-title">
+                    <div class="queue"><b id="queue-no">#1</b><span id="order-no"></span></div>
+                    <button class="held-btn" type="button" id="held-btn">Tersimpan <b id="held-count">0</b></button>
+                    <button class="icon-btn order-close" type="button" id="order-close" aria-label="Tutup pesanan">
+                        <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <div class="name-field" id="name-field">
+                    <div class="name-row">
+                        <input class="input" id="customer" placeholder="Nama pelanggan (ditulis di cup) *" autocomplete="off" maxlength="24" aria-label="Nama pelanggan" aria-required="true">
+                        <button class="icon-btn" type="button" id="cust-btn" aria-label="Simpan sebagai pelanggan" title="Simpan sebagai pelanggan">
+                            <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0M19 8v6M16 11h6"/></svg>
+                        </button>
+                    </div>
+                    <div class="suggest" id="suggest" hidden></div>
+                    <div class="cust-tag" id="cust-tag" hidden><span id="cust-tag-text"></span><button type="button" class="link-btn" id="cust-unlink">Lepas</button></div>
+                    <span class="hint">Nama wajib diisi sebelum bayar atau simpan.</span>
+                </div>
+                <div class="field">
+                    <div class="seg" role="group" aria-label="Jenis pesanan" id="types" style="flex: 1"></div>
+                    <input class="input" id="table" placeholder="Meja" inputmode="none" readonly data-keypad="Nomor meja" style="max-width: 96px" aria-label="Nomor meja">
+                </div>
+            </div>
+            <div class="lines" id="lines"></div>
+            <div class="summary">
+                <div class="row muted"><span>Subtotal</span><span id="subtotal">Rp 0</span></div>
+                <div class="row muted"><button class="pill" type="button" id="discount-btn">Diskon</button><span id="discount">− Rp 0</span></div>
+                <div class="row muted" id="service-row"><span id="service-label">Service</span><span id="service">Rp 0</span></div>
+                <div class="row muted" id="tax-row"><span id="tax-label">Pajak</span><span id="tax">Rp 0</span></div>
+                <div class="row total"><span>Total</span><span id="total">Rp 0</span></div>
+            </div>
+            <div class="pay">
+                <div class="methods" role="group" aria-label="Metode bayar" id="methods"></div>
+            </div>
+            <div class="actions three">
+                <button class="btn" type="button" id="clear" title="Kosongkan pesanan" aria-label="Kosongkan pesanan">
+                    <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+                </button>
+                <button class="btn" type="button" id="hold" title="Simpan pesanan, bayar nanti (tiket barista dicetak)">Simpan</button>
+                <button class="btn btn-primary" type="button" id="checkout" disabled>
+                    <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+                    <span id="checkout-label">Bayar</span>
+                </button>
+            </div>
+        </aside>
+    </main>
+</div>
+
+<button class="cart-bar" id="cart-bar" type="button"><span id="cart-bar-count">0 item</span><span id="cart-bar-total">Rp 0</span></button>
+
+<!-- Pilihan varian (dipilih dulu, baru masuk pesanan) -->
+<dialog id="opt-dlg">
+    <form method="dialog">
+        <div class="dlg-head"><div><h3 id="opt-title"></h3><p id="opt-price"></p></div></div>
+        <div class="dlg-body" id="opt-body"></div>
+        <div class="dlg-foot">
+            <button class="btn" value="cancel" formnovalidate>Batal</button>
+            <button class="btn btn-primary" id="opt-save" value="ok" style="flex: 1">Tambah</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- Bayar -->
+<dialog id="pay-dlg" class="pay-dlg">
+    <div class="dlg-head"><div><h3 id="pay-title">Bayar</h3><p id="pay-sub"></p></div></div>
+    <div class="dlg-body" id="pay-body"></div>
+    <div class="dlg-foot">
+        <button class="btn" type="button" id="pay-cancel">Batal</button>
+        <button class="btn btn-primary" type="button" id="pay-ok" style="flex: 1">Terima pembayaran</button>
+    </div>
+</dialog>
+
+<!-- Kembalian (tunai) -->
+<dialog id="change-dlg" class="change-dlg">
+    <div class="dlg-body">
+        <div class="change-label">Kembalian</div>
+        <div class="change-amount" id="change-amount">Rp 0</div>
+        <div class="change-meta" id="change-meta"></div>
+        <div class="change-status" id="change-status"></div>
+    </div>
+    <div class="dlg-foot"><button class="btn btn-primary" type="button" id="change-done">Selesai · pesanan baru</button></div>
+</dialog>
+
+<!-- Pesanan tersimpan (bayar nanti) -->
+<dialog id="held-dlg">
+    <form method="dialog">
+        <div class="dlg-head"><div><h3>Pesanan tersimpan</h3><p>Ketuk untuk membuka, menambah item, atau membayar.</p></div></div>
+        <div class="dlg-body"><div class="held-list" id="held-list"></div></div>
+        <div class="dlg-foot"><button class="btn" value="cancel">Tutup</button></div>
+    </form>
+</dialog>
+
+<!-- Diskon -->
+<dialog id="disc-dlg">
+    <form method="dialog">
+        <div class="dlg-head"><div><h3>Diskon</h3><p>Persen atau nominal rupiah.</p></div></div>
+        <div class="dlg-body">
+            <div class="opts" id="disc-quick"></div>
+            <input class="input" id="disc-input" placeholder="mis. 10% atau 5000" aria-label="Diskon">
+        </div>
+        <div class="dlg-foot"><button class="btn" value="cancel">Batal</button><button class="btn btn-primary" value="ok">Terapkan</button></div>
+    </form>
+</dialog>
+
+<!-- Pratinjau & cetak manual (printer belum terhubung / cetak ulang) -->
+<dialog id="receipt-dlg">
+    <div class="dlg-head">
+        <div><h3 id="receipt-title">Cetak</h3><p>Kertas 57 mm · 32 karakter per baris</p></div>
+    </div>
+    <div class="dlg-body">
+        <div class="receipt-wrap"><div class="receipt" id="receipt"></div></div>
+        <p class="print-note" id="print-note"></p>
+    </div>
+    <div class="dlg-foot" style="flex-wrap: wrap">
+        <button class="btn" type="button" id="print-browser">Dialog cetak</button>
+        <button class="btn" type="button" id="print-rawbt" hidden>RawBT</button>
+        <button class="btn btn-primary" type="button" id="print-bt">Cetak Bluetooth</button>
+        <button class="btn" type="button" id="receipt-close" style="flex-basis: 100%">Tutup</button>
+    </div>
+</dialog>
+
+<!-- Pelanggan baru (database pelanggan) -->
+<dialog id="cust-dlg">
+    <form method="dialog">
+        <div class="dlg-head"><div><h3>Simpan pelanggan</h3><p>Masuk ke database pelanggan; berikutnya cukup ketik nama atau nomor HP.</p></div></div>
+        <div class="dlg-body">
+            <label class="opt-group"><span>Nama *</span><input class="input" id="cust-name" maxlength="24" required autocomplete="off"></label>
+            <label class="opt-group"><span>No. HP</span><input class="input" id="cust-phone" maxlength="16" inputmode="tel" autocomplete="off" placeholder="08…"></label>
+            <label class="opt-group"><span>Catatan (mis. alergi susu)</span><input class="input" id="cust-notes" maxlength="60" autocomplete="off"></label>
+            <button type="button" class="switch-row" role="switch" id="cust-consent" aria-checked="false"><span>Setuju dihubungi untuk info & promo</span><span class="switch" aria-hidden="true"></span></button>
+        </div>
+        <div class="dlg-foot"><button class="btn" value="cancel" formnovalidate>Batal</button><button class="btn btn-primary" value="ok" id="cust-save" style="flex: 1">Simpan pelanggan</button></div>
+    </form>
+</dialog>
+
+<!-- Keypad angka (nomor meja) -->
+<dialog id="keypad-dlg" class="keypad-dlg">
+    <div class="dlg-head"><div><h3 id="keypad-title"></h3></div></div>
+    <div class="dlg-body">
+        <output class="keypad-display" id="keypad-display">–</output>
+        <div class="keypad" data-keypad-grid>
+            <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button>
+            <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button>
+            <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button>
+            <button type="button" data-k="clear">C</button><button type="button" data-k="0">0</button>
+            <button type="button" data-k="back" aria-label="Hapus satu angka">⌫</button>
+        </div>
+    </div>
+    <div class="dlg-foot"><button class="btn btn-primary" type="button" data-k="ok" style="flex: 1">Selesai</button></div>
+</dialog>
+
+<!-- Konfirmasi -->
+<dialog id="confirm-dlg">
+    <form method="dialog">
+        <div class="dlg-head"><div><h3 id="confirm-title"></h3><p id="confirm-text"></p></div></div>
+        <div class="dlg-foot"><button class="btn" value="cancel">Batal</button><button class="btn btn-primary" value="ok" id="confirm-ok">Ya</button></div>
+    </form>
+</dialog>
+
+<!-- Buka shift: kasir, PIN, modal awal dihitung per pecahan. Tidak bisa dilewati. -->
+<dialog id="open-dlg" class="shift-dlg">
+    <div class="dlg-head"><div><h3>Buka shift</h3><p id="open-sub"></p></div></div>
+    <div class="dlg-body">
+        <div class="opt-group"><span>Shift</span><div class="seg" role="group" aria-label="Shift" id="open-shift"></div></div>
+        <div class="opt-group">
+            <span>Modal awal di laci — hitung per pecahan</span>
+            <div class="handover" id="open-handover" hidden></div>
+            <div class="denoms" id="open-denoms"></div>
+        </div>
+        <div class="count-total"><span>Modal awal<small id="open-diff"></small></span><b id="open-total">Rp 0</b></div>
+        <label class="opt-group" id="open-note-wrap" hidden><span>Catatan selisih serah terima *</span><input class="input" id="open-note" maxlength="60" placeholder="mis. dipakai beli es batu"></label>
+    </div>
+    <div class="dlg-foot">
+        <button class="btn" type="button" id="open-logout">Ganti kasir</button>
+        <button class="btn" type="button" id="open-test">Tes printer</button>
+        <button class="btn btn-primary" type="button" id="open-ok" style="flex: 1">Buka shift</button>
+    </div>
+</dialog>
+
+<!-- PIN (kasir / persetujuan owner) -->
+<dialog id="pin-dlg" class="keypad-dlg">
+    <div class="dlg-head"><div><h3 id="pin-title"></h3><p id="pin-sub"></p></div></div>
+    <div class="dlg-body">
+        <output class="keypad-display pin-display" id="pin-display">–</output>
+        <p class="pin-error" id="pin-error" hidden>PIN salah, coba lagi</p>
+        <div class="keypad">
+            <button type="button" data-p="1">1</button><button type="button" data-p="2">2</button><button type="button" data-p="3">3</button>
+            <button type="button" data-p="4">4</button><button type="button" data-p="5">5</button><button type="button" data-p="6">6</button>
+            <button type="button" data-p="7">7</button><button type="button" data-p="8">8</button><button type="button" data-p="9">9</button>
+            <button type="button" data-p="clear">C</button><button type="button" data-p="0">0</button>
+            <button type="button" data-p="back" aria-label="Hapus satu angka">⌫</button>
+        </div>
+    </div>
+    <div class="dlg-foot"><button class="btn" type="button" data-p="cancel" style="flex: 1">Batal</button></div>
+</dialog>
+
+<!-- Ringkasan shift berjalan -->
+<dialog id="shift-dlg" class="shift-dlg">
+    <div class="dlg-head"><div><h3 id="shift-title"></h3><p id="shift-sub"></p></div></div>
+    <div class="dlg-body"><div class="stats" id="shift-stats"></div><div id="shift-cashlog"></div></div>
+    <div class="dlg-foot" style="flex-wrap: wrap">
+        <button class="btn" type="button" data-s="in">Kas masuk</button>
+        <button class="btn" type="button" data-s="out">Kas keluar</button>
+        <button class="btn btn-primary" type="button" data-s="close" id="shift-close" style="flex: 1">Tutup shift</button>
+        <button class="btn" type="button" data-s="back" style="flex-basis: 100%">Kembali ke kasir</button>
+    </div>
+</dialog>
+
+<!-- Kas masuk / keluar (uang kecil) -->
+<dialog id="kas-dlg" class="kas-dlg">
+    <div class="dlg-head"><div><h3 id="kas-title">Kas keluar</h3><p>Uang keluar/masuk laci di luar penjualan.</p></div></div>
+    <div class="dlg-body">
+        <div class="seg" role="group" aria-label="Jenis kas" id="kas-kind">
+            <button type="button" data-kind="out" aria-pressed="true">Kas keluar</button>
+            <button type="button" data-kind="in" aria-pressed="false">Kas masuk</button>
+        </div>
+        <output class="keypad-display" id="kas-display">Rp 0</output>
+        <div class="opts" id="kas-reasons"></div>
+        <input class="input" id="kas-reason" maxlength="40" placeholder="Keterangan" aria-label="Keterangan">
+        <p class="muted-note" id="kas-hint"></p>
+        <div class="keypad" id="kas-keypad">
+            <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button>
+            <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button>
+            <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button>
+            <button type="button" data-k="000">000</button><button type="button" data-k="0">0</button>
+            <button type="button" data-k="back" aria-label="Hapus satu angka">⌫</button>
+        </div>
+    </div>
+    <div class="dlg-foot">
+        <button class="btn" type="button" id="kas-cancel">Batal</button>
+        <button class="btn btn-primary" type="button" id="kas-ok" style="flex: 1" disabled>Simpan</button>
+    </div>
+</dialog>
+
+<!-- Tutup shift: hitung buta → hasil & setoran → (tutup hari) cocokkan EDC -->
+<dialog id="close-dlg" class="shift-dlg">
+    <div class="dlg-head"><div><h3 id="close-title"></h3><p id="close-sub"></p></div><span class="steps" id="close-steps"></span></div>
+    <div class="dlg-body" id="close-body"></div>
+    <div class="dlg-foot">
+        <button class="btn" type="button" id="close-back">Batal</button>
+        <button class="btn btn-primary" type="button" id="close-next" style="flex: 1">Lanjut</button>
+    </div>
+</dialog>
+
+<div id="print-area"><div class="receipt" id="print-receipt"></div></div>
+<div class="toast" id="toast" role="status" aria-live="polite"><span id="toast-text"></span><button type="button" id="toast-action" hidden></button></div>
+
+<script src="shared/config.js"></script>
+<script>
+(() => {
+    'use strict';
+
+    /* ================================================================ konfigurasi (diatur di panel admin) */
+    const cfg = Bangku.config();
+    const store = Bangku.data;
+    const me = Bangku.session.staff(cfg);
+    if (!me || !Bangku.can(cfg, me, 'pos')) { location.replace('masuk.html'); return; }
+    const ITEMS = cfg.items.filter((i) => i.active);
+    const CATEGORIES = [{ id: '', name: 'Semua' }].concat(cfg.categories.filter((c) => ITEMS.some((i) => i.categoryId === c.id)));
+    const GROUPS = Object.fromEntries(cfg.modifierGroups.map((g) => [g.id, g]));
+    const PAYMENTS = cfg.payments.filter((p) => p.active);
+    const ORDER_TYPES = cfg.orderTypes.filter((t) => t.active);
+    const itemById = (id) => cfg.items.find((m) => m.id === id) || { id, name: '(menu dihapus)', price: 0, groups: [], categoryId: '' };
+    const methodOf = (id) => cfg.payments.find((p) => p.id === id) || { id, label: String(id), kind: 'edc', needsBank: false };
+    const typeOf = (id) => cfg.orderTypes.find((t) => t.id === id) || { id, label: String(id), needsTable: false, service: false };
+    const stationOf = (item) => (cfg.categories.find((c) => c.id === item.categoryId) || {}).station || 'Bar';
+    const isCash = (id) => methodOf(id).kind === 'cash';
+
+    const $ = (s) => document.querySelector(s);
+    const rp = (n) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
+    const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const todayKey = (d = new Date()) => { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+
+    /* Nomor antrean harian: dipakai saat pesanan dibuat (dibayar atau disimpan). */
+    function takeQueueNumber() {
+        const saved = store.get('queue', { day: todayKey(), n: 0 });
+        const n = saved.day === todayKey() ? saved.n + 1 : 1;
+        store.set('queue', { day: todayKey(), n });
+        return n;
+    }
+    const peekQueueNumber = () => { const s = store.get('queue', { day: todayKey(), n: 0 }); return s.day === todayKey() ? s.n + 1 : 1; };
+    const orderCode = (n) => 'B-' + todayKey().slice(5).replace('-', '') + '-' + String(n).padStart(3, '0');
+
+    /* ================================================================ state */
+    const ui = { cat: '', q: '', method: PAYMENTS[0]?.id };
+    const blankOrder = () => ({ uid: null, queue: null, name: '', type: ORDER_TYPES[0]?.id, table: '', customerId: null, lines: [], discount: { kind: 'none', value: 0 }, createdAt: null });
+    let order = blankOrder();
+    let held = store.get('held', []);
+
+    /* ================================================================ menu */
+    function renderTabs() {
+        $('#tabs').innerHTML = CATEGORIES.map((c) => `<button class="tab" role="tab" type="button" aria-selected="${c.id === ui.cat}" data-cat="${esc(c.id)}">${esc(c.name)}</button>`).join('');
+    }
+
+    function renderGrid() {
+        const q = ui.q.trim().toLowerCase();
+        const items = ITEMS.filter((m) => (!ui.cat || m.categoryId === ui.cat) && (!q || m.name.toLowerCase().includes(q)));
+        $('#grid').innerHTML = items.length ? items.map((m) => `
+            <button class="item" type="button" data-id="${m.id}" ${m.soldOut ? 'disabled' : ''}>
+                <span class="thumb" aria-hidden="true">${esc(m.emoji)}</span>
+                <span class="item-name">${esc(m.name)}</span>
+                <span class="item-meta"><span class="price">${rp(m.price)}</span>${m.soldOut ? '<span class="badge">Habis</span>' : m.best ? '<span class="badge">Terlaris</span>' : ''}</span>
+            </button>`).join('') : '<p class="empty">Menu tidak ditemukan.</p>';
+    }
+
+    /* ================================================================ varian: dipilih dulu, baru masuk */
+    const groupsFor = (item) => (item.groups || []).map((id) => GROUPS[id]).filter((g) => g && g.options.length);
+    let editing = null;
+
+    function openOptions(item, lineIndex = null) {
+        const groups = groupsFor(item);
+        const current = lineIndex !== null ? order.lines[lineIndex] : null;
+        editing = { item, lineIndex, qty: current ? current.qty : 1, picks: current ? { ...current.picks } : Object.fromEntries(groups.map((g) => [g.id, 0])) };
+
+        if (!groups.length && lineIndex === null) { addLine(item, {}, '', 1); return; }
+
+        $('#opt-title').textContent = item.name;
+        $('#opt-price').textContent = rp(item.price);
+        $('#opt-body').innerHTML = groups.map((g) => `
+            <div class="opt-group"><span>${esc(g.name)}</span><div class="opts" data-group="${esc(g.id)}">
+                ${g.options.map((o, i) => `<button type="button" class="opt" data-i="${i}" aria-pressed="${editing.picks[g.id] === i}">${esc(o.name)}${o.price ? `<small>+${rp(o.price).replace('Rp ', '')}</small>` : ''}</button>`).join('')}
+            </div></div>`).join('') + `
+            <label class="opt-group"><span>Catatan untuk ${esc(stationOf(item).toLowerCase())}</span><input class="input" id="opt-note" maxlength="40" placeholder="mis. es sedikit" value="${esc(current?.note || '')}"></label>
+            <div class="qty-row"><span class="opt-group"><span>Jumlah</span></span>
+                <span class="qty"><button type="button" data-q="-1" aria-label="Kurangi">−</button><output id="opt-qty">${editing.qty}</output><button type="button" data-q="1" aria-label="Tambah">+</button></span>
+            </div>`;
+        updateOptSave();
+        $('#opt-dlg').showModal();
+    }
+
+    function updateOptSave() {
+        const price = unitPrice({ id: editing.item.id, picks: editing.picks });
+        $('#opt-save').textContent = (editing.lineIndex !== null ? 'Simpan · ' : 'Tambah · ') + rp(price * editing.qty);
+    }
+
+    $('#opt-body').addEventListener('click', (e) => {
+        const q = e.target.closest('[data-q]');
+        if (q) { editing.qty = Math.max(1, Math.min(50, editing.qty + Number(q.dataset.q))); $('#opt-qty').textContent = editing.qty; haptic(); updateOptSave(); return; }
+        const btn = e.target.closest('.opt');
+        if (!btn) return;
+        editing.picks[btn.parentElement.dataset.group] = Number(btn.dataset.i);
+        btn.parentElement.querySelectorAll('.opt').forEach((b) => b.setAttribute('aria-pressed', b === btn));
+        updateOptSave();
+    });
+
+    $('#opt-dlg').addEventListener('close', () => {
+        if ($('#opt-dlg').returnValue !== 'ok' || !editing) { editing = null; return; }
+        const note = ($('#opt-note')?.value || '').trim();
+        if (editing.lineIndex !== null) {
+            const line = order.lines[editing.lineIndex];
+            const changed = JSON.stringify(line.picks) !== JSON.stringify(editing.picks) || line.note !== note;
+            // Varian item yang sudah dicetak berubah: cetak ulang di tiket berikutnya.
+            Object.assign(line, { picks: editing.picks, note, qty: editing.qty, printed: changed ? 0 : Math.min(line.printed || 0, editing.qty) });
+            renderOrder();
+        } else {
+            addLine(editing.item, editing.picks, note, editing.qty);
+        }
+        editing = null;
+    });
+
+    function lineLabels(line) {
+        const item = itemById(line.id);
+        // Pilihan bawaan (indeks 0) tidak ditulis, kecuali grup yang diatur "selalu cetak" (mis. Es/Panas).
+        const parts = groupsFor(item).map((g) => ({ g, i: line.picks[g.id] ?? 0 })).filter(({ g, i }) => i !== 0 || g.printAlways).map(({ g, i }) => (g.options[i] || g.options[0]).name);
+        return parts.concat(line.note ? ['"' + line.note + '"'] : []);
+    }
+
+    function unitPrice(line) {
+        const item = itemById(line.id);
+        return item.price + groupsFor(item).reduce((sum, g) => sum + ((g.options[line.picks[g.id] ?? 0] || {}).price || 0), 0);
+    }
+
+    function addLine(item, picks, note, qty) {
+        const same = order.lines.find((l) => l.id === item.id && JSON.stringify(l.picks) === JSON.stringify(picks) && l.note === note);
+        if (same) same.qty += qty;
+        else order.lines.push({ id: item.id, qty, picks, note, printed: 0 });
+        renderOrder();
+        haptic();
+        toast(`${qty > 1 ? qty + '× ' : ''}${item.name} ditambahkan`);
+    }
+
+    /* ================================================================ total */
+    function totals(o = order) {
+        const subtotal = o.lines.reduce((s, l) => s + unitPrice(l) * l.qty, 0);
+        const d = o.discountRule || o.discount;
+        const discount = Math.min(subtotal, d.kind === 'pct' ? Math.round(subtotal * d.value / 100) : d.kind === 'amount' ? d.value : 0);
+        const c = cfg.charges;
+        const base = subtotal - discount;
+        const serviceRate = c.serviceEnabled && typeOf(o.type).service ? Number(c.serviceRate) || 0 : 0;
+        const service = Math.round(base * serviceRate / 100);
+        const taxRate = c.taxEnabled ? Number(c.taxRate) || 0 : 0;
+        const tax = Math.round((base + service) * taxRate / 100);
+        return { subtotal, discount, serviceRate, service, taxRate, tax, total: base + service + tax, count: o.lines.reduce((s, l) => s + l.qty, 0) };
+    }
+
+    function renderOrder() {
+        const t = totals();
+        const q = order.queue ?? peekQueueNumber();
+        $('#queue-no').textContent = '#' + q;
+        $('#order-no').textContent = (order.code || orderCode(q)) + (order.uid ? ' · tersimpan' : '');
+        $('#customer').value = order.name;
+        $('#table').value = order.table;
+        $('#table').disabled = !typeOf(order.type).needsTable;
+        $('#table').hidden = !ORDER_TYPES.some((t) => t.needsTable);
+        document.querySelectorAll('[data-type]').forEach((x) => x.setAttribute('aria-pressed', x.dataset.type === order.type));
+        renderCustomer();
+        $('#lines').innerHTML = order.lines.length ? order.lines.map((l, i) => {
+            const item = itemById(l.id);
+            const opts = lineLabels(l);
+            const printed = l.printed && l.printed >= l.qty ? '<span class="badge badge-printed">tiket ✓</span>' : '';
+            const main = `<span class="line-name">${esc(item.name)} ${printed}</span>${opts.length ? `<span class="line-opts">${esc(opts.join(' · '))}</span>` : ''}`;
+            return `<div class="line">
+                ${groupsFor(item).length ? `<button type="button" class="line-main" data-edit="${i}" aria-label="Ubah pilihan ${esc(item.name)}">${main}</button>` : `<div class="line-main">${main}</div>`}
+                <div class="line-right">
+                    <span class="line-total">${rp(unitPrice(l) * l.qty)}</span>
+                    <span class="qty">
+                        <button type="button" data-dec="${i}" aria-label="Kurangi ${esc(item.name)}">−</button>
+                        <output aria-label="Jumlah">${l.qty}</output>
+                        <button type="button" data-inc="${i}" aria-label="Tambah ${esc(item.name)}">+</button>
+                    </span>
+                </div>
+            </div>`;
+        }).join('') : '<p class="empty">Belum ada item.<br>Ketuk menu untuk menambahkan.</p>';
+
+        $('#subtotal').textContent = rp(t.subtotal);
+        $('#discount').textContent = '− ' + rp(t.discount);
+        $('#service-row').hidden = !t.serviceRate;
+        $('#service-label').textContent = `${cfg.charges.serviceLabel} ${t.serviceRate}%`;
+        $('#service').textContent = rp(t.service);
+        $('#tax-row').hidden = !t.taxRate;
+        $('#tax-label').textContent = `${cfg.charges.taxLabel} ${t.taxRate}%`;
+        $('#tax').textContent = rp(t.tax);
+        $('#total').textContent = rp(t.total);
+        document.querySelectorAll('[data-method]').forEach((x) => x.setAttribute('aria-pressed', x.dataset.method === ui.method));
+
+        $('#checkout').disabled = !t.count;
+        $('#hold').disabled = !t.count;
+        $('#checkout-label').textContent = t.count ? 'Bayar ' + rp(t.total) : 'Bayar';
+        $('#held-count').textContent = held.length;
+        $('#held-btn').hidden = !held.length;
+        $('#cart-bar-count').textContent = `#${q} · ${t.count} item`;
+        $('#cart-bar-total').textContent = rp(t.total);
+    }
+
+    $('#lines').addEventListener('click', (e) => {
+        const b = e.target.closest('button');
+        if (!b) return;
+        if (b.dataset.edit) return openOptions(itemById(order.lines[b.dataset.edit].id), Number(b.dataset.edit));
+        haptic();
+        if (b.dataset.inc) order.lines[b.dataset.inc].qty++;
+        if (b.dataset.dec) {
+            const l = order.lines[b.dataset.dec];
+            l.qty--;
+            l.printed = Math.min(l.printed || 0, l.qty);
+            if (l.qty <= 0) order.lines.splice(b.dataset.dec, 1);
+        }
+        renderOrder();
+    });
+
+    /* ================================================================ nama wajib */
+    function requireName() {
+        order.name = $('#customer').value.trim();
+        if (order.name || !cfg.policy.requireCustomerName) return true;
+        const field = $('#name-field');
+        field.classList.remove('invalid');
+        void field.offsetWidth;  // ulangi animasi
+        field.classList.add('invalid');
+        $('#order').classList.add('open');
+        $('#customer').focus();
+        haptic(30);
+        return false;
+    }
+    $('#customer').addEventListener('input', (e) => { order.name = e.target.value; if (e.target.value.trim()) $('#name-field').classList.remove('invalid'); });
+
+    /* ================================================================ bayar */
+    const pay = { received: '', bank: '', receipt: !!cfg.printing.receiptDefault };
+
+    function openPay() {
+        if (!totals().count || !requireName()) return;
+        const t = totals();
+        Object.assign(pay, { received: '', bank: '', receipt: !!cfg.printing.receiptDefault });
+        const m = methodOf(ui.method);
+        const edc = m.kind !== 'cash';
+        $('#pay-title').textContent = edc ? `${m.label} via mesin EDC` : `Bayar ${m.label.toLowerCase()}`;
+        $('#pay-sub').textContent = `#${order.queue ?? peekQueueNumber()} · ${order.name}`;
+        // Seluruh baris bisa diketuk (target sentuh 48px), bukan hanya sakelarnya.
+        const receiptSwitch = `<button type="button" class="switch-row" role="switch" id="receipt-switch" aria-checked="${pay.receipt}"><span>Cetak struk pelanggan</span><span class="switch" aria-hidden="true"></span></button>`;
+        if (edc) {
+            $('#pay-body').innerHTML = `
+                <div class="pay-total"><span>Masukkan nominal ini di mesin EDC</span><b>${rp(t.total)}</b></div>
+                ${m.needsBank ? `<div class="opt-group"><span>Bank kartu ${esc(m.label.toLowerCase())} *</span><div class="banks opts" id="banks">${cfg.banks.map((b) => `<button type="button" class="opt" data-bank="${esc(b)}" aria-pressed="false">${esc(b)}</button>`).join('')}</div></div>` : ''}
+                <p class="edc-note">Ketuk <b>Pembayaran berhasil</b> setelah EDC menyatakan transaksi sukses.</p>
+                ${receiptSwitch}`;
+            $('#pay-ok').textContent = 'Pembayaran berhasil';
+        } else {
+            const roundUp = (step) => Math.ceil(t.total / step) * step;
+            const quick = [...new Set([t.total, roundUp(10000), roundUp(50000), roundUp(100000), roundUp(100000) + 100000])].filter((v, i) => i === 0 || v > t.total).slice(0, 4);
+            $('#pay-body').innerHTML = `
+                <div class="pay-total"><span>Total</span><b>${rp(t.total)}</b></div>
+                <div class="cash-grid">
+                    <div class="cash-side">
+                        <div class="received"><span>Uang diterima</span><b id="received">Rp 0</b></div>
+                        <div class="quick" id="cash-quick">${quick.map((v, i) => `<button type="button" data-paid="${v}">${i === 0 ? 'Uang pas' : rp(v).replace('Rp ', '')}</button>`).join('')}</div>
+                        <div class="change-live short" id="change-live"><span>Kurang</span><b>${rp(t.total)}</b></div>
+                    </div>
+                    <div class="keypad" id="cash-keypad">
+                        ${['1', '2', '3', '4', '5', '6', '7', '8', '9', '000', '0', 'back'].map((k) => `<button type="button" data-k="${k}" ${k === 'back' ? 'aria-label="Hapus satu angka"' : ''}>${k === 'back' ? '⌫' : k}</button>`).join('')}
+                    </div>
+                </div>
+                ${receiptSwitch}`;
+            $('#pay-ok').textContent = 'Terima pembayaran';
+        }
+        updatePay();
+        $('#pay-dlg').showModal();
+    }
+
+    function updatePay() {
+        const t = totals();
+        if (isCash(ui.method)) {
+            const received = Number(pay.received) || 0;
+            const diff = received - t.total;
+            $('#received').textContent = rp(received);
+            const live = $('#change-live');
+            live.classList.toggle('short', diff < 0);
+            live.innerHTML = diff < 0 ? `<span>Kurang</span><b>${rp(-diff)}</b>` : `<span>Kembalian</span><b>${rp(diff)}</b>`;
+            $('#pay-ok').disabled = diff < 0;
+        } else {
+            $('#pay-ok').disabled = methodOf(ui.method).needsBank && !pay.bank;
+        }
+    }
+
+    $('#pay-body').addEventListener('click', (e) => {
+        const quick = e.target.closest('[data-paid]');
+        const key = e.target.closest('[data-k]')?.dataset.k;
+        const bank = e.target.closest('[data-bank]');
+        const sw = e.target.closest('#receipt-switch');
+        if (quick) pay.received = quick.dataset.paid;
+        else if (key === 'back') pay.received = pay.received.slice(0, -1);
+        else if (key && pay.received.length < 9) pay.received = (pay.received + key).replace(/^0+(?=\d)/, '');
+        else if (bank) {
+            pay.bank = bank.dataset.bank;
+            document.querySelectorAll('[data-bank]').forEach((b) => b.setAttribute('aria-pressed', b === bank));
+        } else if (sw) {
+            pay.receipt = !pay.receipt;
+            sw.setAttribute('aria-checked', pay.receipt);
+        } else return;
+        haptic();
+        updatePay();
+    });
+
+    $('#pay-cancel').addEventListener('click', () => $('#pay-dlg').close());
+
+    $('#pay-ok').addEventListener('click', async () => {
+        const t = totals();
+        const received = isCash(ui.method) ? Number(pay.received) || 0 : t.total;
+        if (received < t.total) return;
+        $('#pay-dlg').close();
+
+        if (order.queue === null) order.queue = takeQueueNumber();
+        order.code = order.code || orderCode(order.queue);
+        const paid = {
+            ...order, ...t, discountRule: order.discount, method: ui.method, methodLabel: methodOf(ui.method).label, bank: methodOf(ui.method).needsBank ? pay.bank : '',
+            received, change: received - t.total, paidAt: new Date().toISOString(), cashier: me.name, cashierId: me.id, shiftId: shift ? shift.id : null,
+            lines: order.lines.map((l) => ({ ...l })),
+        };
+        // Tiket barista hanya untuk item yang belum dicetak (pesanan tersimpan sudah punya tiket).
+        const job = { ticket: cfg.printing.ticket ? ticketLines(paid, { delta: true }) : null, receipt: pay.receipt ? receiptLines(paid) : null };
+        paid.lines.forEach((l) => { l.printed = l.qty; });
+        store.set('last', paid);
+        recordSale(paid);
+        saveSale(paid);
+        if (order.uid) { held = held.filter((h) => h.uid !== order.uid); store.set('held', held); }
+
+        const printing = job.ticket || job.receipt ? printJob(job, paid, { defer: isCash(ui.method) }) : Promise.resolve(false);
+        if (isCash(ui.method)) {
+            $('#change-amount').textContent = rp(paid.change);
+            $('#change-meta').textContent = `Diterima ${rp(received)} · Total ${rp(t.total)}`;
+            $('#change-status').textContent = bt.char ? 'Mencetak tiket & struk…' : '';
+            $('#change-dlg').showModal();
+            printing.then((ok) => { $('#change-status').textContent = ok ? 'Tiket & struk tercetak ✓' : ''; });
+        } else {
+            finishOrder(paid);
+        }
+    });
+
+    $('#change-done').addEventListener('click', () => {
+        $('#change-dlg').close();
+        finishOrder(store.get('last', null));
+        if (pendingPreview) { openPreview(pendingPreview.job, pendingPreview.o, 'Printer belum terhubung'); pendingPreview = null; }
+    });
+
+    function finishOrder(paid) {
+        order = blankOrder();
+        ui.method = PAYMENTS[0]?.id;
+        $('#order').classList.remove('open');
+        renderOrder();
+        if (paid) toast(`Pesanan #${paid.queue} ${paid.name} selesai`, 'Cetak ulang', () => reprint(paid));
+    }
+
+    /* ================================================================ simpan (bayar nanti) */
+    $('#hold').addEventListener('click', async () => {
+        if (!totals().count || !requireName()) return;
+        if (order.queue === null) order.queue = takeQueueNumber();
+        order.code = order.code || orderCode(order.queue);
+        if (!order.uid) { order.uid = 'h' + Date.now(); order.createdAt = new Date().toISOString(); }
+        const snapshot = { ...order, lines: order.lines.map((l) => ({ ...l })) };
+        const job = { ticket: cfg.printing.ticket ? ticketLines(snapshot, { delta: true }) : null, receipt: null };
+        order.lines.forEach((l) => { l.printed = l.qty; });
+        order.total = totals().total;
+        held = held.filter((h) => h.uid !== order.uid).concat([{ ...order, lines: order.lines.map((l) => ({ ...l })) }]);
+        store.set('held', held);
+        const name = order.name;
+        const queue = order.queue;
+        if (job.ticket) printJob(job, snapshot);
+        order = blankOrder();
+        $('#order').classList.remove('open');
+        renderOrder();
+        toast(`#${queue} ${name} disimpan · tiket barista dicetak`);
+    });
+
+    $('#held-btn').addEventListener('click', () => {
+        $('#held-list').innerHTML = held.length ? held.map((h) => {
+            const t = totals(h);
+            const age = openBillAge(h);
+            const created = new Date(h.createdAt);
+            const when = (age ? created.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' }) + ' ' : '') + created.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+            const tag = age > Number(POLICY.openBillMaxDays) ? `<span class="badge badge-late">${age} hari · tagih / batalkan</span>` : age ? `<span class="badge badge-late">lewat ${age} hari</span>` : h.carriedFrom ? '<span class="badge">dari shift sebelumnya</span>' : '';
+            return `<button type="button" class="held-item" data-uid="${esc(h.uid)}">
+                <b>#${h.queue} · ${esc(h.name)} ${tag}</b><span class="amt">${rp(t.total)}</span>
+                <span>${esc(h.code || '')} · ${esc(typeOf(h.type).label)}${h.table ? ' · Meja ' + esc(h.table) : ''} · ${t.count} item · ${when}</span>
+            </button>`;
+        }).join('') : '<p class="empty">Tidak ada pesanan tersimpan.</p>';
+        $('#held-dlg').showModal();
+    });
+
+    $('#held-list').addEventListener('click', async (e) => {
+        const b = e.target.closest('[data-uid]');
+        if (!b) return;
+        if (order.lines.length && !order.uid) {
+            $('#held-dlg').close();
+            if (!(await confirmDialog('Ganti pesanan?', 'Pesanan yang sedang diisi belum disimpan dan akan dikosongkan.', 'Buka pesanan tersimpan'))) return;
+        }
+        const h = held.find((x) => x.uid === b.dataset.uid);
+        order = { ...h, lines: h.lines.map((l) => ({ ...l })) };
+        if ($('#held-dlg').open) $('#held-dlg').close();
+        renderOrder();
+        toast(`#${order.queue} ${order.name} dibuka`);
+    });
+
+    /* ================================================================ cetakan (32 kolom) */
+    const ascii = (s) => String(s).normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^\x20-\x7e]/g, '');
+    const colsNow = () => Math.max(24, Math.min(48, parseInt(cfg.printing.cols, 10) || 32));
+
+    function textTools(cols) {
+        const wrap = (text, width) => {
+            const indent = (text.match(/^ */) || [''])[0];
+            const words = text.trim().split(/\s+/);
+            const out = [];
+            let line = indent;
+            for (let word of words) {
+                while (word.length > width - indent.length) {
+                    if (line.trim()) { out.push(line); line = indent; }
+                    out.push(indent + word.slice(0, width - indent.length));
+                    word = word.slice(width - indent.length);
+                }
+                if (!word) continue;
+                if ((line + (line.trim() ? ' ' : '') + word).length > width) { out.push(line); line = indent; }
+                line += (line.trim() ? ' ' : '') + word;
+            }
+            if (line.trim()) out.push(line);
+            return out.length ? out : [indent];
+        };
+        const row = (left, right = '') => {
+            left = ascii(left); right = ascii(right);
+            const lines = wrap(left, right ? cols - right.length - 1 : cols);
+            lines[lines.length - 1] = lines[lines.length - 1].padEnd(cols - right.length) + right;
+            return lines;
+        };
+        const center = (s, width = cols) => wrap(ascii(s), width).map((l) => ' '.repeat(Math.floor((width - l.length) / 2)) + l);
+        return { wrap, row, center, rule: '-'.repeat(cols) };
+    }
+    const money = (n) => Math.round(n).toLocaleString('id-ID');
+    const pad2 = (n) => String(n).padStart(2, '0');
+    const stamp = (iso) => { const d = iso ? new Date(iso) : new Date(); return { date: pad2(d.getDate()) + '/' + pad2(d.getMonth() + 1) + '/' + d.getFullYear(), time: pad2(d.getHours()) + ':' + pad2(d.getMinutes()) }; };
+    const where = (o) => (typeOf(o.type).needsTable ? typeOf(o.type).label + (o.table ? ' - Meja ' + o.table : '') : typeOf(o.type).label.toUpperCase());
+
+    /* Tiket barista: nomor & nama besar, item tebal dengan varian. delta = hanya yang belum dicetak. */
+    function ticketLines(o, { delta = false } = {}) {
+        const cols = colsNow();
+        const { row, center, rule } = textTools(cols);
+        const items = o.lines.map((l) => ({ ...l, qty: delta ? l.qty - (l.printed || 0) : l.qty })).filter((l) => l.qty > 0);
+        if (!items.length) return null;
+        const extra = delta && o.lines.some((l) => (l.printed || 0) > 0);
+        const s = stamp();
+        const out = [];
+        out.push(...center(extra ? 'TIKET BARISTA - TAMBAHAN' : 'TIKET BARISTA').map((text) => ({ text })));
+        // Ukuran ganda (2x lebar) → setengah kolom.
+        out.push(...center('#' + o.queue, Math.floor(cols / 2)).map((text) => ({ text, style: 'big' })));
+        if (o.name) out.push(...center(o.name.toUpperCase(), Math.floor(cols / 2)).map((text) => ({ text, style: 'big' })));
+        out.push(...row(where(o), s.time).map((text) => ({ text, style: 'b' })));
+        out.push({ text: rule });
+        for (const l of items) {
+            const item = itemById(l.id);
+            out.push(...row(l.qty + 'x ' + item.name).map((text) => ({ text, style: 'b' })));
+            const opts = lineLabels(l);
+            if (opts.length) out.push(...row('   ' + opts.join(', ')).map((text) => ({ text })));
+        }
+        out.push({ text: rule });
+        out.push(...row(items.reduce((n, l) => n + l.qty, 0) + ' item', o.code || orderCode(o.queue)).map((text) => ({ text })));
+        return { cols, lines: out };
+    }
+
+    function receiptLines(o) {
+        const cols = colsNow();
+        const { row, center, rule } = textTools(cols);
+        const t = totals(o);
+        const s = stamp(o.paidAt);
+        const out = [];
+        out.push(...center(cfg.store.name).map((text) => ({ text, style: 'big-c' })));
+        if (cfg.store.address) out.push(...center(cfg.store.address).map((text) => ({ text })));
+        if (cfg.store.phone) out.push(...center(cfg.store.phone).map((text) => ({ text })));
+        out.push({ text: rule });
+        out.push(...row('No. ' + (o.code || orderCode(o.queue)), s.date).map((text) => ({ text })));
+        out.push(...row('Kasir: ' + (o.cashier || (shift && shift.cashier) || '-'), s.time).map((text) => ({ text })));
+        out.push(...row('Antrean #' + o.queue + (o.name ? ' - ' + o.name : '')).map((text) => ({ text, style: 'b' })));
+        out.push(...row(where(o)).map((text) => ({ text })));
+        out.push({ text: rule });
+        for (const l of o.lines) {
+            const item = itemById(l.id);
+            out.push(...row(item.name).map((text) => ({ text })));
+            out.push(...row('  ' + l.qty + ' x ' + money(unitPrice(l)), money(unitPrice(l) * l.qty)).map((text) => ({ text })));
+            const opts = lineLabels(l);
+            if (opts.length) out.push(...row('  ' + opts.join(', ')).map((text) => ({ text })));
+        }
+        out.push({ text: rule });
+        out.push(...row('Subtotal', money(t.subtotal)).map((text) => ({ text })));
+        if (t.discount) out.push(...row('Diskon', '-' + money(t.discount)).map((text) => ({ text })));
+        if (t.serviceRate) out.push(...row(cfg.charges.serviceLabel + ' ' + t.serviceRate + '%', money(t.service)).map((text) => ({ text })));
+        if (t.taxRate) out.push(...row(cfg.charges.taxLabel + ' ' + t.taxRate + '%', money(t.tax)).map((text) => ({ text })));
+        out.push(...row('TOTAL', 'Rp ' + money(t.total)).map((text) => ({ text, style: 'b' })));
+        out.push(...row((o.methodLabel || methodOf(o.method).label) + (o.bank ? ' ' + o.bank : ''), money(o.received)).map((text) => ({ text })));
+        if (isCash(o.method)) out.push(...row('Kembali', money(o.change)).map((text) => ({ text, style: 'b' })));
+        out.push({ text: rule });
+        if (cfg.store.footer) out.push(...center(cfg.store.footer).map((text) => ({ text })));
+        return { cols, lines: out };
+    }
+
+    function renderPreview(el, job) {
+        el.style.setProperty('--cols', colsNow());
+        const part = (doc) => doc.lines.map((l) => (l.style ? `<span class="${l.style}">${esc(l.text)}</span>` : esc(l.text))).join('\n');
+        el.innerHTML = [job.ticket && part(job.ticket), job.receipt && part(job.receipt)].filter(Boolean).join('\n\n<span style="color:#999">' + '- '.repeat(colsNow() / 2) + '</span>\n\n');
+    }
+
+    /* ESC/POS: tiket, jeda sobek, lalu struk — satu kiriman ke satu printer. */
+    function escpos(job) {
+        const bytes = [0x1b, 0x40, 0x1b, 0x74, 0x00];
+        const docs = [job.ticket, job.receipt].filter(Boolean);
+        docs.forEach((doc, i) => {
+            for (const l of doc.lines) {
+                if (l.style === 'big') bytes.push(0x1b, 0x61, 0x01, 0x1d, 0x21, 0x11, 0x1b, 0x45, 0x01);
+                if (l.style === 'big-c') bytes.push(0x1b, 0x61, 0x01, 0x1d, 0x21, 0x01, 0x1b, 0x45, 0x01);
+                if (l.style === 'b') bytes.push(0x1b, 0x45, 0x01);
+                const text = l.style === 'big' || l.style === 'big-c' ? l.text.trim() : l.text;
+                for (const ch of text) bytes.push(ch.charCodeAt(0) & 0x7f);
+                bytes.push(0x0a);
+                if (l.style === 'big' || l.style === 'big-c') bytes.push(0x1d, 0x21, 0x00, 0x1b, 0x45, 0x00, 0x1b, 0x61, 0x00);
+                if (l.style === 'b') bytes.push(0x1b, 0x45, 0x00);
+            }
+            bytes.push(0x1b, 0x64, i < docs.length - 1 ? 0x05 : 0x04); // ruang untuk menyobek
+        });
+        return new Uint8Array(bytes);
+    }
+    window.__bangku = { escpos, ticketLines, receiptLines, shiftReportLines: (x) => shiftReportLines(x), get order() { return order; }, get held() { return held; } }; // untuk uji otomatis
+
+    /* ================================================================ Bluetooth (Web Bluetooth → printer BLE) */
+    const PRINTER_SERVICES = [
+        '000018f0-0000-1000-8000-00805f9b34fb',
+        'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
+        '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+        '0000ff00-0000-1000-8000-00805f9b34fb',
+        '0000ffe0-0000-1000-8000-00805f9b34fb',
+        '0000fee7-0000-1000-8000-00805f9b34fb',
+    ];
+    const bt = { device: null, char: null };
+    const hasWebBluetooth = !!(navigator.bluetooth && navigator.bluetooth.requestDevice);
+    const isAndroid = /Android/i.test(navigator.userAgent);
+
+    function setPrinterStatus(kind, label) {
+        const chip = $('#printer-chip');
+        chip.title = label;
+        chip.classList.toggle('ok', kind === 'ok');
+        chip.classList.toggle('busy', kind === 'busy');
+        $('#printer-label').textContent = label;
+    }
+
+    async function connectPrinter() {
+        if (!hasWebBluetooth) { toast('Browser ini tidak mendukung Bluetooth. Pakai Chrome di tablet Android.'); return false; }
+        try {
+            setPrinterStatus('busy', 'Mencari printer…');
+            if (!bt.device) {
+                bt.device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: PRINTER_SERVICES });
+                bt.device.addEventListener('gattserverdisconnected', () => { bt.char = null; setPrinterStatus('', 'Printer terputus — ketuk untuk sambung'); });
+            }
+            const server = bt.device.gatt.connected ? bt.device.gatt : await bt.device.gatt.connect();
+            bt.char = null;
+            for (const uuid of PRINTER_SERVICES) {
+                let service;
+                try { service = await server.getPrimaryService(uuid); } catch { continue; }
+                for (const c of await service.getCharacteristics()) {
+                    if (c.properties.writeWithoutResponse || c.properties.write) { bt.char = c; break; }
+                }
+                if (bt.char) break;
+            }
+            if (!bt.char) throw new Error('Printer tidak punya saluran tulis yang dikenali (mungkin bukan printer BLE).');
+            setPrinterStatus('ok', bt.device.name || 'Printer terhubung');
+            store.set('printerName', bt.device.name || '');
+            return true;
+        } catch (e) {
+            if (e && e.name === 'NotFoundError') { setPrinterStatus('', 'Printer belum terhubung'); return false; }
+            bt.device = null;
+            setPrinterStatus('', 'Gagal terhubung');
+            toast((e && e.message) || 'Gagal terhubung ke printer');
+            return false;
+        }
+    }
+
+    async function sendBluetooth(data) {
+        // Sambung ulang otomatis bila koneksi GATT terputus (perangkat sudah pernah dipilih).
+        if (!bt.char && bt.device && !(await connectPrinter())) return false;
+        if (!bt.char) return false;
+        try {
+            setPrinterStatus('busy', 'Mencetak…');
+            for (let i = 0; i < data.length; i += 100) {
+                const part = data.slice(i, i + 100);
+                if (bt.char.properties.writeWithoutResponse && bt.char.writeValueWithoutResponse) await bt.char.writeValueWithoutResponse(part);
+                else await bt.char.writeValue(part);
+                await new Promise((r) => setTimeout(r, 25));
+            }
+            setPrinterStatus('ok', bt.device.name || 'Printer terhubung');
+            return true;
+        } catch (e) {
+            bt.char = null;
+            setPrinterStatus('', 'Gagal mencetak — ketuk untuk sambung');
+            return false;
+        }
+    }
+
+    let lastJob = null;
+    let pendingPreview = null;
+    async function printJob(job, o, { defer = false } = {}) {
+        lastJob = job;
+        if (await sendBluetooth(escpos(job))) return true;
+        // Printer belum terhubung: tampilkan pratinjau dengan pilihan cetak lain
+        // (untuk tunai: setelah layar kembalian ditutup, supaya angka kembalian tidak tertutup).
+        if (defer) pendingPreview = { job, o };
+        else openPreview(job, o, 'Printer belum terhubung');
+        return false;
+    }
+
+    function openPreview(job, o, reason) {
+        lastJob = job;
+        renderPreview($('#receipt'), job);
+        $('#receipt-title').textContent = reason || ('Cetak ulang #' + o.queue);
+        $('#print-bt').hidden = !hasWebBluetooth;
+        $('#print-rawbt').hidden = !isAndroid;
+        $('#print-note').innerHTML = hasWebBluetooth
+            ? 'Ketuk <b>Cetak Bluetooth</b> untuk memilih printer termal BLE. Setelah tersambung, tiket & struk berikutnya tercetak otomatis.'
+            : '<b>Browser ini tidak mendukung Bluetooth.</b> Di tablet Samsung pakai <b>Chrome</b>' + (isAndroid ? ', atau tombol <b>RawBT</b>' : '') + '.';
+        if (!$('#receipt-dlg').open) $('#receipt-dlg').showModal();
+    }
+
+    function reprint(o) {
+        if (!o) return;
+        const job = { ticket: ticketLines(o), receipt: receiptLines(o) };
+        sendBluetooth(escpos(job)).then((ok) => { if (!ok) openPreview(job, o); else toast('Dicetak ulang'); });
+    }
+
+    $('#print-bt').addEventListener('click', async () => { if (await connectPrinter()) { if (await sendBluetooth(escpos(lastJob))) { $('#receipt-dlg').close(); toast('Tercetak'); } } });
+    $('#print-rawbt').addEventListener('click', () => { let bin = ''; escpos(lastJob).forEach((b) => { bin += String.fromCharCode(b); }); window.location.href = 'rawbt:base64,' + btoa(bin); });
+    $('#print-browser').addEventListener('click', () => { renderPreview($('#print-receipt'), lastJob); window.print(); });
+    $('#receipt-close').addEventListener('click', () => $('#receipt-dlg').close());
+    $('#printer-chip').addEventListener('click', connectPrinter);
+
+    /* ================================================================ shift: buka, kas masuk/keluar, tutup */
+    // Shift, pecahan uang, alasan kas & batas persetujuan diatur di panel admin.
+    const toHour = (hhmm) => { const [h, m] = String(hhmm).split(':').map(Number); return (h || 0) + (m || 0) / 60; };
+    const SHIFTS = cfg.shifts.map((x) => ({ name: x.name, from: toHour(x.from) }));
+    const DENOMS = cfg.denominations;
+    const CASH_REASONS = cfg.cashReasons;
+    const POLICY = cfg.policy;
+    const approvers = () => cfg.staff.filter((x) => Bangku.can(cfg, x, 'approve'));
+    const openBillTotal = () => held.reduce((n, h) => n + (h.total || totals(h).total), 0);
+    const openBillAge = (h) => Math.round((new Date(todayKey() + 'T00:00:00') - new Date(todayKey(new Date(h.createdAt)) + 'T00:00:00')) / 86400000);
+
+    let shift = store.get('shift', null);
+    const saveShift = () => store.set('shift', shift);
+    const countTotal = (c) => DENOMS.reduce((n, d) => n + d * (c[d] || 0), 0) + (c.coins || 0);
+    const signed = (n) => (n > 0 ? '+' : n < 0 ? '−' : '') + rp(Math.abs(n));
+
+    function recordSale(p) {
+        if (!shift) return;
+        shift.sales.push({ queue: p.queue, name: p.name, method: p.method, bank: p.bank, total: p.total, discount: p.discount || 0, at: p.paidAt });
+        saveShift();
+    }
+
+    function shiftSummary(s) {
+        const by = {};
+        const banks = {};
+        let discount = 0;
+        let cash = 0;
+        let total = 0;
+        for (const x of s.sales) {
+            const m = methodOf(x.method);
+            by[m.id] = (by[m.id] || 0) + x.total;
+            total += x.total;
+            discount += x.discount;
+            if (m.kind === 'cash') cash += x.total;
+            if (x.bank) banks[m.label + ' ' + x.bank] = (banks[m.label + ' ' + x.bank] || 0) + x.total;
+        }
+        const sum = (kind) => s.cash.filter((c) => c.kind === kind).reduce((n, c) => n + c.amount, 0);
+        const cashIn = sum('in');
+        const cashOut = sum('out');
+        return { count: s.sales.length, by, banks, discount, total, cash, cashIn, cashOut, expected: s.float + cash + cashIn - cashOut };
+    }
+
+    function renderShift() {
+        $('#shift-label').textContent = shift ? 'Shift ' + shift.name : 'Shift tutup';
+        $('#shift-chip').classList.toggle('ok', !!shift);
+        $('#cashier').textContent = me.name;
+    }
+
+    /* Penghitung uang per pecahan: ketuk −/+ atau ketuk angka untuk mengetik jumlah lembar. */
+    function renderDenoms(el, counts, onChange) {
+        el.innerHTML = DENOMS.map((d) => `<div class="denom">
+                <span class="lbl">${money(d)}<small>${rp(d * (counts[d] || 0))}</small></span>
+                <button type="button" class="pm" data-d="${d}" data-step="-1" aria-label="Kurangi ${money(d)}">−</button>
+                <button type="button" class="n" data-d="${d}" aria-label="Jumlah lembar ${money(d)}">${counts[d] || 0}</button>
+                <button type="button" class="pm" data-d="${d}" data-step="1" aria-label="Tambah ${money(d)}">+</button>
+            </div>`).join('')
+            + `<div class="denom coins"><span class="lbl">Koin<small>total rupiah</small></span><button type="button" class="money-btn" data-coins>${rp(counts.coins || 0)}</button></div>`;
+        el.onclick = async (e) => {
+            const b = e.target.closest('button');
+            if (!b) return;
+            if (b.hasAttribute('data-coins')) {
+                const v = await openKeypad('Total koin', counts.coins || '', { max: 7, money: true });
+                if (v !== null) counts.coins = Number(v) || 0;
+            } else if (b.dataset.step) {
+                counts[b.dataset.d] = Math.max(0, (counts[b.dataset.d] || 0) + Number(b.dataset.step));
+                haptic();
+            } else {
+                const v = await openKeypad('Lembar ' + rp(Number(b.dataset.d)), counts[b.dataset.d] || '', { max: 3 });
+                if (v !== null) counts[b.dataset.d] = Number(v) || 0;
+            }
+            renderDenoms(el, counts, onChange);
+            onChange();
+        };
+    }
+
+    /* PIN: kasir saat buka shift, owner untuk persetujuan. Otomatis dicek saat digit lengkap. */
+    let pin = null;
+    function askPin(title, sub, accept) {
+        pin = { value: '', accept, who: null };
+        $('#pin-title').textContent = title;
+        $('#pin-sub').textContent = sub;
+        $('#pin-error').hidden = true;
+        renderPin();
+        $('#pin-dlg').showModal();
+        return new Promise((resolve) => { pin.resolve = resolve; });
+    }
+    /* Persetujuan: PIN staf dengan hak "approve" (owner/kepala toko). Mengembalikan nama penyetuju. */
+    async function askApproval(sub) {
+        const list = approvers();
+        const who = await askPin('Persetujuan', `${sub} · PIN ${list.map((x) => Bangku.roleOf(cfg, x).name.toLowerCase()).filter((v, i, a) => a.indexOf(v) === i).join('/')} · contoh: ${list.map((x) => x.name + ' ' + x.pin).join(', ')}`, (v) => list.find((x) => x.pin === v) || null);
+        return who ? who.name : '';
+    }
+    const renderPin = () => { $('#pin-display').textContent = pin.value ? '•'.repeat(pin.value.length) : '–'; };
+    $('#pin-dlg').addEventListener('click', (e) => {
+        const k = e.target.closest('[data-p]')?.dataset.p;
+        if (!k || !pin) return;
+        if (k === 'cancel') { $('#pin-dlg').close(); return; }
+        if (k === 'back') pin.value = pin.value.slice(0, -1);
+        else if (k === 'clear') pin.value = '';
+        else pin.value += k;
+        haptic();
+        $('#pin-error').hidden = true;
+        if (pin.value.length >= (Number(POLICY.pinLength) || 4)) {
+            const who = pin.accept(pin.value);
+            if (who) { pin.who = who; $('#pin-dlg').close(); return; }
+            pin.value = '';
+            $('#pin-error').hidden = false;
+            haptic(60);
+        }
+        renderPin();
+    });
+    $('#pin-dlg').addEventListener('close', () => { if (pin) { pin.resolve(pin.who); pin = null; } });
+
+    /* ---------- buka shift ---------- */
+    const opening = { shift: null, cashier: null, counts: {} };
+    function suggestShift() {
+        const done = store.get('shifts', []).filter((x) => x.day === todayKey()).map((x) => x.name);
+        const now = new Date();
+        const h = now.getHours() + now.getMinutes() / 60;
+        const byTime = [...SHIFTS].reverse().find((x) => h >= x.from) || SHIFTS[0];
+        return (done.includes(byTime.name) ? SHIFTS.find((x) => !done.includes(x.name)) || byTime : byTime).name;
+    }
+    function openOpening() {
+        Object.assign(opening, { shift: suggestShift(), counts: {} });
+        $('#open-note').value = '';
+        $('#open-sub').textContent = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) + ' · Kasir ' + me.name;
+        renderOpening();
+        if (!$('#open-dlg').open) $('#open-dlg').showModal();
+    }
+    function renderOpening() {
+        const handover = store.get('handover', null);
+        $('#open-shift').innerHTML = SHIFTS.map((x) => `<button type="button" data-shift="${esc(x.name)}" aria-pressed="${x.name === opening.shift}">${esc(x.name)}</button>`).join('');
+        $('#open-handover').hidden = !handover && !held.length;
+        $('#open-handover').innerHTML = (handover ? `Serah terima dari <b>Shift ${esc(handover.from)}</b>: <b>${rp(handover.amount)}</b> ditinggal di laci. Hitung ulang sebelum mulai.` : '')
+            + (held.length ? `${handover ? '<br>' : ''}<b>${held.length} open bill</b> belum dibayar (${rp(openBillTotal())}) — ada di tombol <b>Tersimpan</b>.` : '');
+        renderDenoms($('#open-denoms'), opening.counts, updateOpening);
+        updateOpening();
+    }
+    function updateOpening() {
+        const total = countTotal(opening.counts);
+        const handover = store.get('handover', null);
+        const diff = handover ? total - handover.amount : 0;
+        $('#open-total').textContent = rp(total);
+        $('#open-diff').textContent = diff ? `${diff < 0 ? 'Kurang' : 'Lebih'} ${rp(Math.abs(diff))} dari serah terima` : '';
+        $('#open-note-wrap').hidden = !diff;
+        $('#open-ok').disabled = !!diff && !$('#open-note').value.trim();
+    }
+    $('#open-note').addEventListener('input', updateOpening);
+    $('#open-shift').addEventListener('click', (e) => { const b = e.target.closest('[data-shift]'); if (b) { opening.shift = b.dataset.shift; renderOpening(); } });
+    $('#open-logout').addEventListener('click', () => lock());
+    $('#open-dlg').addEventListener('cancel', (e) => e.preventDefault()); // kasir tidak bisa dipakai tanpa shift
+    $('#open-test').addEventListener('click', () => printDoc(testPageLines(), 'Tes printer'));
+    $('#open-ok').addEventListener('click', async () => {
+        const total = countTotal(opening.counts);
+        const handover = store.get('handover', null);
+        shift = {
+            id: 's' + Date.now(), day: todayKey(), name: opening.shift, cashier: me.name, cashierId: me.id, openedAt: new Date().toISOString(),
+            float: total, counts: { ...opening.counts }, handover: handover ? { ...handover, note: $('#open-note').value.trim() } : null, sales: [], cash: [],
+        };
+        saveShift();
+        store.set('handover', null);
+        $('#open-dlg').close();
+        renderShift();
+        toast(`Shift ${shift.name} dibuka · ${shift.cashier} · modal ${rp(total)}`);
+    });
+
+    /* ---------- ringkasan shift & kas masuk/keluar ---------- */
+    function openShiftMenu() {
+        if (!shift) { openOpening(); return; }
+        const s = shiftSummary(shift);
+        $('#shift-title').textContent = `Shift ${shift.name} · ${shift.cashier}`;
+        $('#shift-sub').textContent = `Dibuka ${stamp(shift.openedAt).time} · modal awal ${rp(shift.float)}`;
+        $('#shift-stats').innerHTML = [['Penjualan', rp(s.total)], ['Transaksi', s.count], ...PAYMENTS.map((m) => [m.label, rp(s.by[m.id] || 0)]), ['Kas masuk / keluar', `+${money(s.cashIn)} / −${money(s.cashOut)}`]]
+            .map(([k, v]) => `<div class="stat"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('');
+        $('#shift-cashlog').innerHTML = shift.cash.length
+            ? '<div class="kv">' + shift.cash.map((c) => `<div><span>${stamp(c.at).time} · ${c.kind === 'in' ? 'Masuk' : 'Keluar'} · ${esc(c.reason)}${c.approvedBy ? ' · disetujui ' + esc(c.approvedBy) : ''}</span><b>${c.kind === 'in' ? '+' : '−'}${rp(c.amount)}</b></div>`).join('') + '</div>'
+            : '<p class="muted-note">Belum ada kas masuk/keluar di shift ini.</p>';
+        $('#shift-dlg').showModal();
+    }
+    $('#shift-chip').addEventListener('click', openShiftMenu);
+    $('#shift-dlg').addEventListener('click', (e) => {
+        const k = e.target.closest('[data-s]')?.dataset.s;
+        if (!k) return;
+        $('#shift-dlg').close();
+        if (k === 'in' || k === 'out') openKas(k);
+        if (k === 'close') startClosing();
+    });
+
+    const kas = { kind: 'out', value: '', reason: '' };
+    function openKas(kind) {
+        Object.assign(kas, { kind, value: '', reason: '' });
+        $('#kas-reason').value = '';
+        renderKas();
+        $('#kas-dlg').showModal();
+    }
+    const kasReason = () => {
+        const text = $('#kas-reason').value.trim();
+        return kas.reason && kas.reason !== 'Lainnya' ? kas.reason + (text ? ' - ' + text : '') : text;
+    };
+    function renderKas() {
+        $('#kas-kind').querySelectorAll('[data-kind]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.kind === kas.kind)));
+        $('#kas-title').textContent = kas.kind === 'in' ? 'Kas masuk' : 'Kas keluar';
+        $('#kas-display').textContent = rp(Number(kas.value) || 0);
+        $('#kas-reasons').innerHTML = CASH_REASONS[kas.kind].map((r) => `<button type="button" class="opt" data-reason="${esc(r)}" aria-pressed="${r === kas.reason}">${esc(r)}</button>`).join('');
+        $('#kas-reason').placeholder = kas.reason === 'Lainnya' || !kas.reason ? 'Keterangan *' : 'Keterangan tambahan (opsional)';
+        updateKas();
+    }
+    function updateKas() {
+        const amount = Number(kas.value) || 0;
+        $('#kas-hint').textContent = kas.kind === 'out' && amount > POLICY.cashOutApprovalAbove ? `Di atas ${rp(POLICY.cashOutApprovalAbove)} perlu PIN owner/kepala toko.` : '';
+        $('#kas-ok').disabled = !amount || !kasReason();
+    }
+    $('#kas-kind').addEventListener('click', (e) => { const b = e.target.closest('[data-kind]'); if (b) { kas.kind = b.dataset.kind; kas.reason = ''; renderKas(); } });
+    $('#kas-reasons').addEventListener('click', (e) => { const b = e.target.closest('[data-reason]'); if (b) { kas.reason = b.dataset.reason; renderKas(); } });
+    $('#kas-reason').addEventListener('input', updateKas);
+    $('#kas-keypad').addEventListener('click', (e) => {
+        const k = e.target.closest('[data-k]')?.dataset.k;
+        if (!k) return;
+        kas.value = k === 'back' ? kas.value.slice(0, -1) : (kas.value + k).replace(/^0+/, '').slice(0, 9);
+        haptic();
+        $('#kas-display').textContent = rp(Number(kas.value) || 0);
+        updateKas();
+    });
+    $('#kas-cancel').addEventListener('click', () => $('#kas-dlg').close());
+    $('#kas-ok').addEventListener('click', async () => {
+        const amount = Number(kas.value) || 0;
+        const entry = { kind: kas.kind, amount, reason: kasReason(), at: new Date().toISOString(), approvedBy: '' };
+        if (entry.kind === 'out' && amount > POLICY.cashOutApprovalAbove) {
+            entry.approvedBy = await askApproval(`Kas keluar ${rp(amount)} · ${entry.reason}`);
+            if (!entry.approvedBy) return;
+        }
+        shift.cash.push(entry);
+        saveShift();
+        $('#kas-dlg').close();
+        toast(`${entry.kind === 'in' ? 'Kas masuk' : 'Kas keluar'} ${rp(amount)} dicatat`);
+    });
+
+    /* ---------- tutup shift ---------- */
+    const closing = { step: 0, counts: {}, reason: '', floatLeft: null, dayClose: false, edc: {}, edcNote: '' };
+    const closingSteps = () => ['count', 'result'].concat(closing.dayClose ? ['edc'] : []);
+
+    async function startClosing() {
+        if (order.lines.length && !order.uid) { toast('Selesaikan atau kosongkan pesanan yang sedang diisi dulu'); return; }
+        if (held.length) {
+            const list = held.slice(0, 4).map((h) => `#${h.queue} ${h.name}`).join(', ') + (held.length > 4 ? ', …' : '');
+            if (!POLICY.carryOpenBills) {
+                if (await confirmDialog('Masih ada pesanan terbuka', `${held.length} pesanan belum dibayar (${list}). Bayar atau batalkan dulu sebelum tutup shift.`, 'Lihat pesanan')) $('#held-btn').click();
+                return;
+            }
+            if (!(await confirmDialog('Masih ada pesanan terbuka', `${held.length} open bill belum dibayar · ${rp(openBillTotal())} (${list}). Pesanan tetap tersimpan, dialihkan ke shift berikutnya, dan dicatat di laporan shift. Penjualannya dihitung saat dibayar.`, 'Alihkan & tutup shift'))) return;
+        }
+        Object.assign(closing, { step: 0, counts: {}, reason: '', floatLeft: null, dayClose: shift.name === SHIFTS[SHIFTS.length - 1].name, edc: {}, edcNote: '' });
+        renderClosing();
+        $('#close-dlg').showModal();
+    }
+
+    /* Total QRIS & Debit per bank semua shift hari ini — dicocokkan dengan struk settlement EDC (sekali sehari). */
+    function dayTotals() {
+        const shifts = store.get('shifts', []).filter((x) => x.day === shift.day).concat([shift]);
+        const t = Object.fromEntries(PAYMENTS.filter((m) => m.kind === 'edc' && !m.needsBank).map((m) => [m.label, 0]));
+        for (const sh of shifts) {
+            for (const x of sh.sales) {
+                const m = methodOf(x.method);
+                if (m.kind !== 'edc') continue;
+                const k = m.label + (x.bank ? ' ' + x.bank : '');
+                t[k] = (t[k] || 0) + x.total;
+            }
+        }
+        return t;
+    }
+
+    function renderClosing() {
+        const steps = closingSteps();
+        const step = steps[closing.step];
+        const s = shiftSummary(shift);
+        const counted = countTotal(closing.counts);
+        const body = $('#close-body');
+        $('#close-title').textContent = { count: 'Tutup shift · hitung uang', result: 'Tutup shift · hasil & setoran', edc: 'Tutup hari · cocokkan EDC' }[step];
+        $('#close-sub').textContent = `Shift ${shift.name} · ${shift.cashier} · dibuka ${stamp(shift.openedAt).time}`;
+        $('#close-steps').textContent = `Langkah ${closing.step + 1}/${steps.length}`;
+        $('#close-back').textContent = closing.step ? 'Kembali' : 'Batal';
+        $('#close-next').textContent = closing.step === steps.length - 1 ? 'Tutup shift & cetak laporan' : 'Lanjut';
+
+        if (step === 'count') {
+            // Hitung buta: jumlah seharusnya baru tampil setelah kasir selesai menghitung.
+            body.innerHTML = `<p class="muted-note">Hitung semua uang di laci per pecahan. Jumlah seharusnya ditampilkan setelah selesai menghitung.</p>
+                <div class="denoms" id="close-denoms"></div>
+                <div class="count-total"><span>Uang di laci</span><b id="close-total">${rp(counted)}</b></div>`;
+            renderDenoms($('#close-denoms'), closing.counts, () => { $('#close-total').textContent = rp(countTotal(closing.counts)); });
+        }
+        if (step === 'result') {
+            closing.floatLeft = Math.min(closing.floatLeft ?? shift.float, counted);
+            const v = counted - s.expected;
+            const needOwner = Math.abs(v) > POLICY.varianceApprovalAbove;
+            body.innerHTML = `
+                <div class="variance ${v === 0 ? 'ok' : v < 0 ? 'short' : 'over'}" id="close-variance"><span>${v === 0 ? 'Kas sesuai' : v < 0 ? 'Kas kurang' : 'Kas lebih'}</span><b>${signed(v)}</b></div>
+                <div class="kv">
+                    <div><span>Modal awal</span><span>${rp(shift.float)}</span></div>
+                    <div><span>Penjualan tunai (${shift.sales.filter((x) => isCash(x.method)).length} trx)</span><span>+ ${rp(s.cash)}</span></div>
+                    <div><span>Kas masuk</span><span>+ ${rp(s.cashIn)}</span></div>
+                    <div><span>Kas keluar</span><span>− ${rp(s.cashOut)}</span></div>
+                    <div class="total"><span>Seharusnya di laci</span><span>${rp(s.expected)}</span></div>
+                    <div class="total"><span>Dihitung</span><span>${rp(counted)}</span></div>
+                </div>
+                ${v ? `<label class="opt-group"><span>Alasan selisih *${needOwner ? ` · di atas ${rp(POLICY.varianceApprovalAbove)} perlu PIN owner/kepala toko` : ''}</span><input class="input" id="close-reason" maxlength="60" value="${esc(closing.reason)}" placeholder="mis. salah beri kembalian"></label>` : ''}
+                ${held.length ? `<p class="muted-note" id="close-openbills"><b>${held.length} open bill</b> (${rp(openBillTotal())}) dialihkan ke shift berikutnya${closing.dayClose && POLICY.openBillDayApproval ? ' · lewat hari: perlu persetujuan saat tutup' : ''}.</p>` : ''}
+                <div class="split">
+                    <div class="opt-group"><span>Modal ditinggal untuk shift berikutnya</span><button type="button" class="money-btn" id="close-float">${rp(closing.floatLeft)}</button></div>
+                    <div class="opt-group"><span>Diserahkan ke owner</span><div class="money-out" id="close-deposit">${rp(counted - closing.floatLeft)}</div></div>
+                </div>
+                <button type="button" class="switch-row" id="close-day" role="switch" aria-checked="${closing.dayClose}"><span>Tutup hari · cocokkan settlement EDC</span><span class="switch" aria-hidden="true"></span></button>`;
+        }
+        if (step === 'edc') {
+            const pos = dayTotals();
+            body.innerHTML = `<p class="muted-note">Lakukan settlement di mesin EDC, lalu masukkan total dari struk settlement. Total POS = semua shift hari ini.</p>
+                <div class="edc-table">
+                    <div class="edc-row head"><span>Metode</span><span>POS</span><span>Struk EDC</span></div>
+                    ${Object.keys(pos).map((k) => {
+                        const e = closing.edc[k];
+                        const d = e === undefined ? null : e - pos[k];
+                        return `<div class="edc-row"><b>${esc(k)}</b><span>${rp(pos[k])}</span>
+                            <button type="button" class="money-btn${e === undefined ? ' empty-val' : ''}" data-edc="${esc(k)}">${e === undefined ? 'Isi' : rp(e)}</button>
+                            ${d === null ? '' : `<span class="diff ${d ? 'bad' : 'good'}">${d ? 'Selisih ' + signed(d) : 'Cocok ✓'}</span>`}</div>`;
+                    }).join('')}
+                </div>
+                ${Object.keys(pos).some((k) => closing.edc[k] !== undefined && closing.edc[k] !== pos[k]) ? `<label class="opt-group"><span>Catatan selisih EDC *</span><input class="input" id="close-edc-note" maxlength="60" value="${esc(closing.edcNote)}" placeholder="mis. transaksi QRIS gagal tapi tercatat"></label>` : ''}`;
+        }
+        updateClosingNext();
+    }
+
+    function updateClosingNext() {
+        const step = closingSteps()[closing.step];
+        let ok = true;
+        if (step === 'result') ok = !$('#close-reason') || !!closing.reason.trim();
+        if (step === 'edc') {
+            const pos = dayTotals();
+            ok = Object.keys(pos).every((k) => closing.edc[k] !== undefined) && (!$('#close-edc-note') || !!closing.edcNote.trim());
+        }
+        $('#close-next').disabled = !ok;
+    }
+
+    $('#close-body').addEventListener('input', (e) => {
+        if (e.target.id === 'close-reason') closing.reason = e.target.value;
+        if (e.target.id === 'close-edc-note') closing.edcNote = e.target.value;
+        updateClosingNext();
+    });
+    $('#close-body').addEventListener('click', async (e) => {
+        if (e.target.closest('#close-day')) { closing.dayClose = !closing.dayClose; renderClosing(); return; }
+        if (e.target.closest('#close-float')) {
+            const v = await openKeypad('Modal ditinggal', closing.floatLeft || '', { max: 9, money: true });
+            if (v !== null) closing.floatLeft = Number(v) || 0;
+            renderClosing();
+            return;
+        }
+        const b = e.target.closest('[data-edc]');
+        if (b) {
+            const v = await openKeypad(b.dataset.edc + ' di struk EDC', closing.edc[b.dataset.edc] ?? '', { max: 9, money: true });
+            if (v !== null) closing.edc[b.dataset.edc] = Number(v) || 0;
+            renderClosing();
+        }
+    });
+    $('#close-back').addEventListener('click', () => { if (!closing.step) { $('#close-dlg').close(); return; } closing.step--; renderClosing(); });
+    $('#close-next').addEventListener('click', () => { if (closing.step < closingSteps().length - 1) { closing.step++; renderClosing(); } else finishClosing(); });
+
+    async function finishClosing() {
+        const s = shiftSummary(shift);
+        const counted = countTotal(closing.counts);
+        const variance = counted - s.expected;
+        // Satu PIN persetujuan untuk semua yang perlu: selisih besar dan/atau open bill lewat hari.
+        const needVariance = Math.abs(variance) > POLICY.varianceApprovalAbove;
+        const needCarry = closing.dayClose && held.length > 0 && POLICY.openBillDayApproval;
+        let approvedBy = '';
+        if (needVariance || needCarry) {
+            approvedBy = await askApproval([needVariance ? `Selisih kas ${signed(variance)} · ${closing.reason.trim()}` : '', needCarry ? `${held.length} open bill lewat hari (${rp(openBillTotal())})` : ''].filter(Boolean).join(' + '));
+            if (!approvedBy) return;
+        }
+        const openBills = { count: held.length, total: openBillTotal(), approvedBy: needCarry ? approvedBy : '', list: held.map((h) => ({ code: h.code || orderCode(h.queue), name: h.name, total: h.total || 0, createdAt: h.createdAt })) };
+        held.forEach((h) => { h.carriedFrom = `${shift.name} ${shift.day}`; if (closing.dayClose) h.overDay = true; });
+        store.set('held', held);
+        const closed = {
+            ...shift, closedAt: new Date().toISOString(), summary: s, counted, countedCounts: { ...closing.counts },
+            variance, varianceReason: closing.reason.trim(), approvedBy: needVariance ? approvedBy : '', openBills, floatLeft: closing.floatLeft, deposit: counted - closing.floatLeft,
+            edc: closing.dayClose ? { pos: dayTotals(), edc: { ...closing.edc }, note: closing.edcNote.trim() } : null,
+        };
+        store.set('shifts', store.get('shifts', []).concat([closed]).slice(-60));
+        store.set('handover', { amount: closed.floatLeft, from: `${closed.name} (${closed.cashier})` });
+        shift = null;
+        saveShift();
+        $('#close-dlg').close();
+        renderShift();
+        openOpening();
+        printDoc(shiftReportLines(closed), 'Laporan shift ' + closed.name);
+    }
+
+    /* Laporan shift (Z-report) 57 mm: penjualan, kas, setoran ke owner, settlement EDC bila tutup hari. */
+    function shiftReportLines(x) {
+        const cols = colsNow();
+        const { row, center, rule } = textTools(cols);
+        const out = [];
+        const push = (lines, style) => lines.forEach((text) => out.push(style ? { text, style } : { text }));
+        const s = x.summary;
+        const o = stamp(x.openedAt);
+        const c = stamp(x.closedAt);
+        const sign = (n) => (n > 0 ? '+' : n < 0 ? '-' : '') + money(Math.abs(n));
+        push(center(x.edc ? 'LAPORAN SHIFT & TUTUP HARI' : 'LAPORAN SHIFT'), 'b');
+        push(center(cfg.store.name), 'big-c');
+        push(row('Shift ' + x.name + ' - ' + x.cashier, o.date));
+        push(row('Buka ' + o.time + ' - Tutup ' + c.time));
+        out.push({ text: rule });
+        push(row('PENJUALAN', s.count + ' trx'), 'b');
+        for (const m of cfg.payments) {
+            if (!s.by[m.id]) continue;
+            if (m.needsBank) Object.entries(s.banks).filter(([k]) => k.startsWith(m.label + ' ')).forEach(([k, n]) => push(row(k, money(n))));
+            else push(row(m.label, money(s.by[m.id])));
+        }
+        if (s.discount) push(row('Diskon diberikan', money(s.discount)));
+        push(row('TOTAL', money(s.total)), 'b');
+        out.push({ text: rule });
+        push(row('KAS DI LACI'), 'b');
+        push(row('Modal awal', money(x.float)));
+        if (x.handover && x.handover.amount !== x.float) push(row('  serah terima ' + money(x.handover.amount) + ': ' + x.handover.note));
+        push(row('Penjualan tunai', '+' + money(s.cash)));
+        x.cash.forEach((k) => {
+            push(row((k.kind === 'in' ? 'Masuk: ' : 'Keluar: ') + k.reason, (k.kind === 'in' ? '+' : '-') + money(k.amount)));
+            if (k.approvedBy) push(row('  disetujui ' + k.approvedBy));
+        });
+        push(row('Seharusnya', money(s.expected)));
+        push(row('Dihitung', money(x.counted)), 'b');
+        push(row('Selisih', sign(x.variance)), 'b');
+        if (x.variance) push(row('  ' + x.varianceReason));
+        if (x.approvedBy) push(row('  disetujui ' + x.approvedBy));
+        out.push({ text: rule });
+        push(row('DISERAHKAN KE OWNER', money(x.deposit)), 'b');
+        push(row('Modal ditinggal', money(x.floatLeft)));
+        if (x.openBills && x.openBills.count) {
+            out.push({ text: rule });
+            push(row('OPEN BILL DIALIHKAN', x.openBills.count + ' psn'), 'b');
+            x.openBills.list.forEach((b) => push(row('  ' + b.code + ' ' + b.name, money(b.total))));
+            push(row('Belum dibayar', money(x.openBills.total)), 'b');
+            if (x.openBills.approvedBy) push(row('  lewat hari, disetujui ' + x.openBills.approvedBy));
+        }
+        if (x.edc) {
+            out.push({ text: rule });
+            push(row('SETTLEMENT EDC (HARI INI)'), 'b');
+            for (const k of Object.keys(x.edc.pos)) {
+                const d = x.edc.edc[k] - x.edc.pos[k];
+                push(row(k, ''));
+                push(row('  POS ' + money(x.edc.pos[k]) + ' / EDC', money(x.edc.edc[k])));
+                if (d) push(row('  selisih', sign(d)), 'b');
+            }
+            if (x.edc.note) push(row('  ' + x.edc.note));
+        }
+        out.push({ text: rule });
+        push(row('Kasir', 'Owner'));
+        out.push({ text: '' }, { text: '' });
+        push(row('(' + x.cashier + ')', '(__________)'));
+        return { cols, lines: out };
+    }
+
+    function testPageLines() {
+        const cols = colsNow();
+        const { row, center, rule } = textTools(cols);
+        const s = stamp();
+        return { cols, lines: [
+            ...center('TES PRINTER').map((text) => ({ text, style: 'b' })),
+            ...center(cfg.store.name).map((text) => ({ text })),
+            ...row(s.date, s.time).map((text) => ({ text })),
+            { text: rule },
+            { text: '1234567890'.repeat(5).slice(0, cols) },
+            ...center('BESAR 2X', Math.floor(cols / 2)).map((text) => ({ text, style: 'big' })),
+            { text: rule },
+            ...center('Printer siap dipakai').map((text) => ({ text })),
+        ] };
+    }
+
+    function printDoc(doc, title) {
+        const job = { ticket: null, receipt: doc };
+        lastJob = job;
+        sendBluetooth(escpos(job)).then((ok) => { if (ok) toast(title + ' tercetak'); else openPreview(job, null, title); });
+    }
+
+    /* ================================================================ interaksi lain */
+    $('#tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-cat]'); if (!b) return; ui.cat = b.dataset.cat; renderTabs(); renderGrid(); });
+    $('#q').addEventListener('input', (e) => { ui.q = e.target.value; renderGrid(); });
+    $('#grid').addEventListener('click', (e) => { const b = e.target.closest('[data-id]'); if (b && !b.disabled) openOptions(itemById(Number(b.dataset.id))); });
+    $('#types').innerHTML = ORDER_TYPES.map((t) => `<button type="button" data-type="${esc(t.id)}" aria-pressed="false">${esc(t.label)}</button>`).join('');
+    $('#types').style.gridTemplateColumns = `repeat(${Math.max(1, ORDER_TYPES.length)}, 1fr)`;
+    $('#methods').innerHTML = PAYMENTS.map((m) => `<button class="method" type="button" data-method="${esc(m.id)}" aria-pressed="false">${esc(m.label)}</button>`).join('');
+    $('#methods').style.gridTemplateColumns = `repeat(${Math.min(4, Math.max(1, PAYMENTS.length))}, 1fr)`;
+    $('#types').addEventListener('click', (e) => { const b = e.target.closest('[data-type]'); if (b) { order.type = b.dataset.type; if (!typeOf(order.type).needsTable) order.table = ''; renderOrder(); } });
+    $('#methods').addEventListener('click', (e) => { const b = e.target.closest('[data-method]'); if (b) { ui.method = b.dataset.method; renderOrder(); } });
+    $('#checkout').addEventListener('click', openPay);
+    $('#clear').addEventListener('click', async () => {
+        if (!order.lines.length) return;
+        const isHeld = !!order.uid;
+        if (!(await confirmDialog(isHeld ? 'Tutup pesanan ini?' : 'Kosongkan pesanan?', isHeld ? 'Pesanan tetap tersimpan dan bisa dibuka lagi.' : 'Semua item di pesanan ini akan dihapus.', isHeld ? 'Tutup' : 'Kosongkan'))) return;
+        order = blankOrder();
+        $('#order').classList.remove('open');
+        renderOrder();
+    });
+    $('#cart-bar').addEventListener('click', () => $('#order').classList.add('open'));
+    $('#order-close').addEventListener('click', () => $('#order').classList.remove('open'));
+
+    $('#discount-btn').addEventListener('click', () => {
+        $('#disc-quick').innerHTML = ['0'].concat(cfg.discounts.presets).map((v) => `<button type="button" class="opt" data-v="${esc(v)}">${v === '0' ? 'Tanpa' : String(v).includes('%') ? esc(v) : rp(Number(v) || 0)}</button>`).join('');
+        $('#disc-input').value = order.discount.kind === 'pct' ? order.discount.value + '%' : order.discount.kind === 'amount' ? String(order.discount.value) : '';
+        $('#disc-dlg').showModal();
+    });
+    $('#disc-quick').addEventListener('click', (e) => { const b = e.target.closest('[data-v]'); if (b) $('#disc-input').value = b.dataset.v; });
+    $('#disc-dlg').addEventListener('close', () => {
+        if ($('#disc-dlg').returnValue !== 'ok') return;
+        const v = $('#disc-input').value.trim();
+        const n = parseFloat(v.replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
+        const next = !n ? { kind: 'none', value: 0 } : v.includes('%') ? { kind: 'pct', value: Math.min(100, n) } : { kind: 'amount', value: Math.round(Number(v.replace(/\D/g, ''))) };
+        // Diskon di atas batas (persen dari subtotal) perlu persetujuan owner/kepala toko.
+        const sub = totals().subtotal;
+        const pct = next.kind === 'pct' ? next.value : next.kind === 'amount' && sub ? next.value / sub * 100 : 0;
+        const apply = (by) => { order.discount = { ...next, approvedBy: by || '' }; renderOrder(); };
+        if (pct > Number(cfg.discounts.approvalAbovePct)) askApproval(`Diskon ${next.kind === 'pct' ? next.value + '%' : rp(next.value)} (di atas ${cfg.discounts.approvalAbovePct}%)`).then((by) => { if (by) apply(by); });
+        else apply('');
+    });
+
+    /* Keypad angka (nomor meja, jumlah lembar, nominal) — keyboard Android tidak menutupi layar. */
+    let keypad = null;
+    function openKeypad(title, value, { max = 3, money: isMoney = false } = {}) {
+        keypad = { value: String(value || ''), max, isMoney, result: null, fresh: true };
+        $('#keypad-title').textContent = title;
+        showKeypad();
+        $('#keypad-dlg').showModal();
+        return new Promise((resolve) => { keypad.resolve = resolve; });
+    }
+    const showKeypad = () => { $('#keypad-display').textContent = keypad.isMoney ? rp(Number(keypad.value) || 0) : (keypad.value || '–'); };
+    $('#keypad-dlg').addEventListener('click', (e) => {
+        const k = e.target.closest('[data-k]')?.dataset.k;
+        if (!k || !keypad) return;
+        if (k === 'ok') { keypad.result = keypad.value; $('#keypad-dlg').close(); return; }
+        if (k === 'back') keypad.value = keypad.value.slice(0, -1);
+        else if (k === 'clear') keypad.value = '';
+        else {
+            // Angka pertama menggantikan nilai lama (seperti kalkulator).
+            if (keypad.fresh) keypad.value = '';
+            if (keypad.value.length < keypad.max) keypad.value = (keypad.value + k).replace(/^0+(?=\d)/, '');
+        }
+        keypad.fresh = false;
+        haptic();
+        showKeypad();
+    });
+    $('#keypad-dlg').addEventListener('close', () => { if (keypad) { keypad.resolve(keypad.result); keypad = null; } });
+    $('#table').addEventListener('click', async () => {
+        if ($('#table').disabled) return;
+        const v = await openKeypad('Nomor meja', order.table);
+        if (v !== null) { order.table = v; renderOrder(); }
+    });
+
+    function confirmDialog(title, text, okLabel) {
+        $('#confirm-title').textContent = title;
+        $('#confirm-text').textContent = text;
+        $('#confirm-ok').textContent = okLabel;
+        $('#confirm-dlg').showModal();
+        return new Promise((resolve) => $('#confirm-dlg').addEventListener('close', () => resolve($('#confirm-dlg').returnValue === 'ok'), { once: true }));
+    }
+
+    function haptic(ms = 8) { try { navigator.vibrate && navigator.vibrate(ms); } catch { /* tidak didukung */ } }
+
+    window.addEventListener('beforeunload', (e) => { if (!leaving && order.lines.length && !order.uid) { e.preventDefault(); e.returnValue = ''; } });
+
+    function applySettings() {
+        document.querySelectorAll('[data-store-name]').forEach((el) => { el.textContent = cfg.store.name; });
+        document.title = 'Kasir · ' + cfg.store.name;
+        $('#customer').placeholder = 'Nama pelanggan (ditulis di cup)' + (cfg.policy.requireCustomerName ? ' *' : '');
+        $('#customer').setAttribute('aria-required', String(!!cfg.policy.requireCustomerName));
+    }
+
+    /* ================================================================ kunci / ganti kasir (shift tetap terbuka) */
+    let leaving = false;
+    function lock() {
+        if (order.lines.length && !order.uid) store.set('draft', order);
+        leaving = true;
+        Bangku.session.end();
+        location.href = 'masuk.html?locked=1';
+    }
+    $('#lock-btn').addEventListener('click', lock);
+    let idleTimer;
+    const resetIdle = () => {
+        clearTimeout(idleTimer);
+        const minutes = Number(POLICY.autoLockMinutes) || 0;
+        if (minutes > 0) idleTimer = setTimeout(() => { if (document.querySelector('dialog[open]:not(#open-dlg)')) resetIdle(); else lock(); }, minutes * 60000);
+    };
+    ['pointerdown', 'keydown'].forEach((ev) => addEventListener(ev, resetIdle, { passive: true }));
+    resetIdle();
+
+    /* ================================================================ penjualan → data admin, pelanggan */
+    function saveSale(p) {
+        const sales = store.get('sales', []);
+        sales.push({
+            code: p.code || orderCode(p.queue), queue: p.queue, openedAt: p.createdAt || null, name: p.name, customerId: p.customerId || null, cashier: p.cashier, cashierId: p.cashierId,
+            type: p.type, table: p.table, subtotal: p.subtotal, discount: p.discount, service: p.service, tax: p.tax, total: p.total,
+            method: p.method, methodLabel: p.methodLabel, bank: p.bank, received: p.received, change: p.change, paidAt: p.paidAt, shiftId: p.shiftId, status: 'paid',
+            lines: p.lines.map((l) => ({ id: l.id, name: itemById(l.id).name, categoryId: itemById(l.id).categoryId, qty: l.qty, price: unitPrice(l), opts: lineLabels(l) })),
+        });
+        store.set('sales', sales.slice(-5000));
+        if (p.customerId) Bangku.customers.recordVisit(p.customerId, p.total, cfg.customers.loyaltyEnabled ? Number(cfg.customers.pointPer) : 0);
+    }
+
+    const custOn = !!cfg.customers.enabled;
+    function renderCustomer() {
+        const c = order.customerId ? Bangku.customers.all().find((x) => x.id === order.customerId) : null;
+        if (order.customerId && !c) order.customerId = null;
+        $('#cust-tag').hidden = !c;
+        if (c) $('#cust-tag-text').textContent = `${c.name}${c.phone ? ' · ' + c.phone : ''} · ${c.visits}× kunjungan${cfg.customers.loyaltyEnabled ? ' · ' + c.points + ' poin' : ''}${c.notes ? ' · ' + c.notes : ''}`;
+        $('#cust-btn').hidden = !custOn || !!c;
+    }
+    function showSuggest() {
+        const list = custOn && !order.customerId ? Bangku.customers.find($('#customer').value) : [];
+        $('#suggest').hidden = !list.length;
+        $('#suggest').innerHTML = list.map((c) => `<button type="button" data-cust="${esc(c.id)}"><b>${esc(c.name)}</b><span>${esc(c.phone || 'tanpa no. HP')} · ${c.visits}× kunjungan</span></button>`).join('');
+    }
+    $('#customer').addEventListener('input', () => {
+        const c = order.customerId && Bangku.customers.all().find((x) => x.id === order.customerId);
+        if (c && c.name !== $('#customer').value.trim()) { order.customerId = null; renderCustomer(); }
+        showSuggest();
+    });
+    $('#customer').addEventListener('blur', () => setTimeout(() => { $('#suggest').hidden = true; }, 200));
+    $('#suggest').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-cust]');
+        if (!b) return;
+        const c = Bangku.customers.all().find((x) => x.id === b.dataset.cust);
+        order.customerId = c.id;
+        order.name = c.name;
+        $('#suggest').hidden = true;
+        $('#name-field').classList.remove('invalid');
+        renderOrder();
+    });
+    $('#cust-unlink').addEventListener('click', () => { order.customerId = null; renderOrder(); });
+    $('#cust-btn').addEventListener('click', () => {
+        const v = $('#customer').value.trim();
+        const looksPhone = /^[+\d\s-]{6,}$/.test(v);
+        $('#cust-name').value = looksPhone ? '' : v;
+        $('#cust-phone').value = looksPhone ? v : '';
+        $('#cust-notes').value = '';
+        $('#cust-consent').setAttribute('aria-checked', 'false');
+        $('#cust-dlg').showModal();
+    });
+    $('#cust-consent').addEventListener('click', (e) => { const b = e.currentTarget; b.setAttribute('aria-checked', String(b.getAttribute('aria-checked') !== 'true')); });
+    $('#cust-dlg').addEventListener('close', () => {
+        if ($('#cust-dlg').returnValue !== 'ok') return;
+        const name = $('#cust-name').value.trim();
+        const phone = Bangku.normPhone($('#cust-phone').value);
+        if (!name) return;
+        const dup = phone && Bangku.customers.all().find((x) => Bangku.normPhone(x.phone) === phone);
+        const c = dup || Bangku.customers.upsert({ name, phone, notes: $('#cust-notes').value.trim(), consent: $('#cust-consent').getAttribute('aria-checked') === 'true' });
+        order.customerId = c.id;
+        order.name = c.name;
+        $('#name-field').classList.remove('invalid');
+        renderOrder();
+        toast(dup ? `No. HP sudah terdaftar atas nama ${c.name} — dipakai` : `Pelanggan ${c.name} disimpan`);
+    });
+
+    Bangku.initTheme($('#theme'));
+
+    let toastTimer;
+    function toast(msg, actionLabel, action) {
+        const el = $('#toast');
+        $('#toast-text').textContent = msg;
+        const btn = $('#toast-action');
+        btn.hidden = !actionLabel;
+        btn.textContent = actionLabel || '';
+        btn.onclick = action ? () => { el.classList.remove('show'); action(); } : null;
+        el.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.classList.remove('show'), actionLabel ? 6000 : 2200);
+    }
+
+    const tick = () => { $('#clock').textContent = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }); };
+    tick(); setInterval(tick, 10000);
+
+    if (!hasWebBluetooth) setPrinterStatus('', 'Bluetooth tidak didukung browser');
+    else if (store.get('printerName', '')) setPrinterStatus('', 'Ketuk untuk sambung: ' + store.get('printerName', ''));
+
+    { const draft = store.get('draft', null); if (draft) { order = { ...blankOrder(), ...draft }; store.remove('draft'); } }
+    applySettings();
+    renderTabs();
+    renderGrid();
+    renderOrder();
+    renderShift();
+    if (!shift) openOpening();
+    else if (shift.day !== todayKey()) toast(`Shift ${shift.name} (${shift.day}) belum ditutup — tutup dulu lewat tombol Shift`);
+})();
+</script>
+</body>
+</html>

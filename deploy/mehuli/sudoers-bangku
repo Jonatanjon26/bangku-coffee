@@ -1,0 +1,3 @@
+# Dipasang deploy/mehuli/provision.sh ke /etc/sudoers.d/bangku (mode 0440).
+# User bangku hanya boleh me-reload PHP-FPM saat deploy (tanpa worker/antrean).
+bangku ALL=(root) NOPASSWD: /usr/bin/systemctl reload php8.4-fpm

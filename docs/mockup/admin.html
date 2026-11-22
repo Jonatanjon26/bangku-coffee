@@ -1,0 +1,1074 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Panel Admin · Bangku Coffee</title>
+<link rel="stylesheet" href="shared/base.css">
+<style>
+/*
+ * Mockup panel admin Bangku Coffee (nanti: Filament + mehuli/filament-shadcn dari starter kit).
+ * Semua data & aturan yang dipakai kasir diatur di sini → shared/config.js (localStorage perangkat).
+ */
+/* ---------- masuk ---------- */
+.auth { min-height: 100dvh; display: grid; place-items: center; padding: 24px max(16px, env(safe-area-inset-right)) 24px max(16px, env(safe-area-inset-left)); }
+.auth-card { display: grid; grid-template-columns: 1fr 1fr; width: min(920px, 100%); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--background); box-shadow: var(--shadow-xs); }
+.auth-form { padding: 32px; display: grid; gap: 16px; align-content: center; }
+.auth-form .logo { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: var(--primary); color: var(--primary-foreground); justify-self: center; }
+.auth-form h1 { font-size: 22px; text-align: center; }
+.auth-form .sub { text-align: center; color: var(--muted-foreground); margin-top: -8px; }
+.auth-form .btn { height: 40px; }
+.auth-art { position: relative; background: radial-gradient(circle at 70% 30%, color-mix(in oklab, var(--primary) 55%, #fff) 0, var(--primary) 60%, #3b2a1e 100%); color: #fffaf5; padding: 32px; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; min-height: 420px; overflow: hidden; }
+.auth-art::before { content: '☕'; position: absolute; right: 32px; top: 24px; font-size: 120px; opacity: .25; }
+.auth-art b { font-size: 20px; line-height: 1.35; }
+.auth-err { color: var(--destructive); font-weight: 500; font-size: 13px; }
+.auth-foot { text-align: center; color: var(--muted-foreground); font-size: 12px; margin-top: 16px; }
+.pw { position: relative; }
+.pw .input { padding-right: 40px; }
+.pw button { position: absolute; right: 2px; top: 2px; width: 32px; height: 32px; border: 0; background: none; color: var(--muted-foreground); display: grid; place-items: center; }
+
+/* ---------- kerangka panel ---------- */
+.shell { display: grid; grid-template-columns: 16rem minmax(0, 1fr); min-height: 100dvh; }
+.sidebar { position: sticky; top: 0; height: 100dvh; display: flex; flex-direction: column; gap: 4px; padding: 12px 8px max(12px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); overflow-y: auto; background: var(--sidebar); }
+.brand { display: flex; align-items: center; gap: 10px; padding: 6px 8px 10px; }
+.brand-icon { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; background: var(--primary); color: var(--primary-foreground); }
+.brand b { display: block; font-size: 14px; }
+.brand small { color: var(--muted-foreground); font-size: 12px; }
+.nav-group { padding: 12px 10px 4px; font-size: 12px; color: var(--muted-foreground); font-weight: 500; }
+.nav a { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 10px; border-radius: var(--radius-sm); text-decoration: none; font-weight: 500; }
+.nav a:hover { background: var(--accent); }
+.nav a[aria-current='page'] { background: color-mix(in oklab, var(--foreground) 7%, transparent); }
+.nav .count { margin-left: auto; font-size: 11px; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; display: grid; place-items: center; background: var(--destructive); color: #fff; }
+.side-foot { margin-top: auto; display: grid; gap: 4px; }
+.user { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: var(--radius-sm); }
+.user .av { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; background: var(--muted); font-weight: 600; font-size: 12px; flex: none; }
+.user b { display: block; font-size: 13px; }
+.user small { color: var(--muted-foreground); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.user > span:nth-child(2) { min-width: 0; flex: 1; }
+.content { margin: 8px max(8px, env(safe-area-inset-right)) 8px 0; border: 1px solid var(--border); border-radius: 14px; background: var(--background); min-width: 0; display: flex; flex-direction: column; }
+.topbar { display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 16px; border-bottom: 1px solid var(--border); }
+.topbar h2 { font-size: 15px; font-weight: 600; }
+.topbar .sep { width: 1px; height: 18px; background: var(--border); }
+.topbar .spacer { flex: 1; }
+.menu-btn { display: none; }
+.page { padding: 20px; display: grid; gap: 16px; align-content: start; }
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.page-head h1 { font-size: 22px; }
+.page-head p { color: var(--muted-foreground); margin-top: 2px; }
+.page-head .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.scrim { display: none; }
+
+/* ---------- komponen ---------- */
+.card { border: 1px solid var(--border); border-radius: 12px; background: var(--card); box-shadow: var(--shadow-xs); }
+.card-head { padding: 14px 16px 0; display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.card-head h3 { font-size: 15px; }
+.card-head p { color: var(--muted-foreground); font-size: 13px; }
+.card-body { padding: 14px 16px 16px; display: grid; gap: 14px; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.stat { padding: 14px 16px; display: grid; gap: 4px; }
+.stat span { color: var(--muted-foreground); font-size: 13px; }
+.stat b { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.stat small { color: var(--muted-foreground); font-size: 12px; }
+.grid2 { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 12px; }
+.grid-half { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.bars { display: grid; gap: 10px; }
+.bar-row { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; gap: 10px; align-items: center; font-variant-numeric: tabular-nums; font-size: 13px; }
+.bar-row span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar { height: 8px; border-radius: 999px; background: var(--muted); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: 999px; background: var(--primary); }
+.chart { width: 100%; height: 220px; display: block; }
+.chart text { fill: var(--muted-foreground); font-size: 11px; font-family: var(--font); }
+.chart .b { fill: var(--primary); }
+.chart .g { stroke: var(--border); }
+
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.toolbar .input, .toolbar .select { width: auto; min-width: 180px; flex: 1 1 200px; max-width: 320px; }
+.tabs { display: inline-flex; padding: 3px; gap: 2px; border-radius: var(--radius-sm); background: var(--muted); flex-wrap: wrap; }
+.tabs button { height: 30px; padding: 0 12px; border: 0; border-radius: 5px; background: transparent; color: var(--muted-foreground); font-weight: 500; white-space: nowrap; }
+.tabs button[aria-pressed='true'] { background: var(--background); color: var(--foreground); box-shadow: var(--shadow-xs); }
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; vertical-align: middle; }
+th { font-weight: 500; color: var(--muted-foreground); font-size: 13px; background: var(--sidebar); }
+tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; }
+tbody tr[data-open] { cursor: pointer; }
+tbody tr[data-open]:hover { background: var(--accent); }
+td .sub { display: block; color: var(--muted-foreground); font-size: 12px; }
+td.wrap { white-space: normal; min-width: 180px; }
+.mono { font-family: var(--mono); font-size: 13px; }
+.empty-state { padding: 32px 16px; text-align: center; color: var(--muted-foreground); display: grid; gap: 10px; justify-items: center; }
+
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; }
+.form-grid .full { grid-column: 1 / -1; }
+.toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 36px; }
+.toggle-row > span { display: grid; }
+.toggle-row small { color: var(--muted-foreground); font-size: 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.chip { display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 4px 0 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--background); font-size: 13px; }
+.chip button { width: 24px; height: 24px; border: 0; border-radius: 999px; background: none; color: var(--muted-foreground); display: grid; place-items: center; }
+.chip button:hover { background: var(--muted); color: var(--destructive); }
+.chip-add { display: inline-flex; gap: 6px; }
+.chip-add .input { width: 150px; height: 30px; }
+.chip-add .btn { height: 30px; }
+.rows { display: grid; gap: 8px; }
+.rows table td { padding: 6px 8px; }
+.rows table .input, .rows table .select { height: 32px; min-width: 90px; }
+.rows table td.ctl { width: 1%; }
+.save-bar { position: sticky; bottom: 0; display: flex; justify-content: flex-end; align-items: center; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border); background: color-mix(in oklab, var(--background) 92%, transparent); backdrop-filter: blur(6px); border-radius: 0 0 14px 14px; }
+.save-bar span { margin-right: auto; color: var(--muted-foreground); font-size: 13px; }
+.errors { color: var(--destructive); font-size: 13px; display: grid; gap: 2px; }
+.matrix td, .matrix th { text-align: center; }
+.matrix td:first-child, .matrix th:first-child { text-align: left; }
+.thumb { width: 36px; height: 36px; border-radius: 8px; display: inline-grid; place-items: center; background: var(--muted); font-size: 20px; }
+.name-cell { display: flex; align-items: center; gap: 10px; }
+.note { padding: 10px 12px; border-radius: var(--radius-sm); background: var(--accent); font-size: 13px; }
+.kv { display: grid; gap: 6px; font-variant-numeric: tabular-nums; }
+.kv > div { display: flex; justify-content: space-between; gap: 12px; }
+.kv .total { font-weight: 700; border-top: 1px solid var(--border); padding-top: 6px; }
+.group-card { border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: grid; gap: 10px; }
+.group-card .head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.group-card .head .input { flex: 1 1 160px; }
+.pair { font-family: var(--mono); font-size: 28px; letter-spacing: .25em; font-weight: 700; }
+
+/* lembar detail (sheet) */
+.sheet { width: min(560px, 100vw); height: 100dvh; max-height: 100dvh; margin: 0 0 0 auto; border-radius: 14px 0 0 14px; flex-direction: column; }
+.sheet[open] { display: flex; }
+.sheet .dlg-body { overflow-y: auto; flex: 1; align-content: start; }
+
+@media (max-width: 1100px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .grid2 { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 1023px) {
+    .shell { grid-template-columns: minmax(0, 1fr); }
+    .sidebar { position: fixed; inset: 0 auto 0 0; width: min(18rem, 86vw); z-index: 50; transform: translateX(-105%); transition: transform .2s; border-right: 1px solid var(--border); }
+    .shell.nav-open .sidebar { transform: none; }
+    .shell.nav-open .scrim { display: block; position: fixed; inset: 0; z-index: 40; background: rgba(12, 10, 9, .4); }
+    .content { margin: 8px max(8px, env(safe-area-inset-right)) 8px max(8px, env(safe-area-inset-left)); }
+    .menu-btn { display: inline-grid; }
+}
+@media (max-width: 699px) {
+    .auth-card { grid-template-columns: minmax(0, 1fr); }
+    .auth-art { display: none; }
+    .auth-form { padding: 24px 20px; }
+    .content { margin: 0; border: 0; border-radius: 0; }
+    .topbar { padding: 0 max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left)); }
+    .page { padding: 16px max(16px, env(safe-area-inset-right)) 24px max(16px, env(safe-area-inset-left)); }
+    .stats { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .stat b { font-size: 19px; }
+    .grid-half, .form-grid { grid-template-columns: minmax(0, 1fr); }
+    .topbar .hide-sm { display: none; }
+    .toolbar .input, .toolbar .select { max-width: none; }
+    .sheet { border-radius: 0; }
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<dialog id="dlg"></dialog>
+<dialog id="sheet" class="sheet"></dialog>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="shared/config.js"></script>
+<script>
+(() => {
+    'use strict';
+    const { data, esc, rp, clone } = Bangku;
+    const $ = (s, el = document) => el.querySelector(s);
+    const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+    let cfg = Bangku.config();
+    const money = (n) => Math.round(Number(n) || 0).toLocaleString('id-ID');
+    const fmtDate = (iso, opt = { day: '2-digit', month: 'short' }) => (iso ? new Date(iso).toLocaleDateString('id-ID', opt) : '–');
+    const fmtTime = (iso) => (iso ? new Date(iso).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '–');
+    const daysAgo = (n) => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - n); return d; };
+    let toastTimer;
+    const toast = (msg) => { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2400); };
+    const saveCfg = () => { Bangku.saveConfig(cfg); };
+    const methodOf = (id) => cfg.payments.find((p) => p.id === id) || { id, label: String(id), kind: 'edc' };
+    const catOf = (id) => cfg.categories.find((c) => c.id === id) || { id, name: '–', station: '' };
+    const slug = (s) => String(s).toLowerCase().normalize('NFKD').replace(/[^\w]+/g, '-').replace(/^-|-$/g, '') || 'x' + Date.now();
+    const ICON = {
+        dash: '<path d="M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z"/>',
+        receipt: '<path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/>',
+        shift: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+        chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+        menu: '<path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/>',
+        layers: '<path d="m12 2 10 5-10 5L2 7z"/><path d="m2 12 10 5 10-5M2 17l10 5 10-5"/>',
+        users: '<circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0M16 3.5a4 4 0 0 1 0 8M22 21a7 7 0 0 0-4-6.3"/>',
+        staff: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+        gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+        moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+        bars: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+        out: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
+        plus: '<path d="M12 5v14M5 12h14"/>',
+        x: '<path d="M18 6 6 18M6 6l12 12"/>',
+        eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+        pos: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+    };
+    const icon = (n) => `<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON[n]}</svg>`;
+
+    /* ================================================================ sesi admin */
+    const adminSession = {
+        get() { const s = data.get('adminSession', null); const u = s && cfg.staff.find((x) => x.id === s.staffId); return u && Bangku.can(cfg, u, 'admin') ? u : null; },
+        start(u) { data.set('adminSession', { staffId: u.id, at: new Date().toISOString() }); },
+        end() { data.remove('adminSession'); },
+    };
+    const canDo = (perm) => Bangku.can(cfg, adminSession.get(), perm);
+
+    /* ================================================================ data */
+    const sales = () => data.get('sales', []);
+    const closedShifts = () => data.get('shifts', []);
+    function summarize(s) {
+        const by = {}; const banks = {}; let cash = 0; let total = 0; let discount = 0;
+        for (const x of s.sales || []) {
+            const m = methodOf(x.method);
+            by[m.id] = (by[m.id] || 0) + x.total; total += x.total; discount += x.discount || 0;
+            if (m.kind === 'cash') cash += x.total;
+            if (x.bank) banks[m.label + ' ' + x.bank] = (banks[m.label + ' ' + x.bank] || 0) + x.total;
+        }
+        const sum = (k) => (s.cash || []).filter((c) => c.kind === k).reduce((n, c) => n + c.amount, 0);
+        const cashIn = sum('in'); const cashOut = sum('out');
+        return { count: (s.sales || []).length, by, banks, cash, total, discount, cashIn, cashOut, expected: s.float + cash + cashIn - cashOut };
+    }
+    const inRange = (iso, from) => new Date(iso) >= from;
+    const openBills = () => data.get('held', []);
+    const billAge = (h) => Math.round((daysAgo(0) - new Date(Bangku.todayKey(new Date(h.createdAt)) + 'T00:00:00')) / 86400000);
+    const itemName = (id) => (cfg.items.find((i) => i.id === id) || { name: '(menu dihapus)' }).name;
+    const paidSales = (from) => sales().filter((x) => x.status !== 'refunded' && inRange(x.paidAt, from));
+
+    /* Data contoh 14 hari supaya dasbor & laporan terisi (bisa dihapus di Pengaturan › Data). */
+    function seedDemo() {
+        let seed = 7;
+        const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+        const pick = (a) => a[Math.floor(rnd() * a.length)];
+        const names = ['Ana', 'Budi', 'Cici', 'Dedi', 'Eka', 'Fajar', 'Gita', 'Hendra', 'Intan', 'Joko', 'Kiki', 'Lia', 'Maya', 'Nanda', 'Oki', 'Putri', 'Rizky', 'Sari', 'Tono', 'Wulan'];
+        const custs = names.slice(0, 12).map((n, i) => ({ id: 'cs' + i, name: n, phone: '0812' + String(10000000 + i * 7919).slice(0, 8), notes: i === 2 ? 'Alergi susu sapi' : '', consent: i % 3 !== 0, visits: 0, spent: 0, points: 0, lastVisit: null, createdAt: daysAgo(30).toISOString() }));
+        const items = cfg.items.filter((i) => i.active && !i.soldOut);
+        const pays = cfg.payments.filter((p) => p.active);
+        const cashiers = cfg.staff.filter((s) => Bangku.can(cfg, s, 'pos') && s.roleId !== 'owner');
+        const out = []; const shifts = []; let q = 0;
+        for (let d = 13; d >= 0; d--) {
+            q = 0;
+            cfg.shifts.forEach((sh, si) => {
+                if (d === 0 && si > 0) return;
+                const day = daysAgo(d);
+                const [fh] = sh.from.split(':').map(Number); const [th] = sh.to.split(':').map(Number);
+                const cashier = cashiers[(d + si) % cashiers.length] || cfg.staff[0];
+                const rec = { id: 'demo-' + d + '-' + si, day: Bangku.todayKey(day), name: sh.name, cashier: cashier.name, cashierId: cashier.id, float: 300000, sales: [], cash: [], counts: {} };
+                rec.openedAt = new Date(day.getTime() + fh * 3600000 + 5 * 60000).toISOString();
+                const n = 18 + Math.floor(rnd() * 22) + (day.getDay() % 6 === 0 ? 12 : 0);
+                for (let k = 0; k < n; k++) {
+                    const at = new Date(day.getTime() + (fh + rnd() * (th - fh - 0.3)) * 3600000);
+                    if (at > new Date()) continue; // hari ini: hanya sampai jam sekarang
+                    q++;
+                    const lines = Array.from({ length: 1 + Math.floor(rnd() * 3) }, () => { const it = pick(items); const qty = rnd() < .2 ? 2 : 1; return { id: it.id, name: it.name, categoryId: it.categoryId, qty, price: it.price, opts: [] }; });
+                    const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0);
+                    const r = rnd(); const m = r < .45 ? pays[0] : r < .85 ? pays.find((p) => p.id === 'qris') || pays[0] : pays.find((p) => p.needsBank) || pays[0];
+                    const cust = rnd() < .3 ? pick(custs) : null;
+                    const sale = { code: 'B-' + Bangku.todayKey(day).slice(5).replace('-', '') + '-' + String(q).padStart(3, '0'), queue: q, name: cust ? cust.name : pick(names), customerId: cust ? cust.id : null, cashier: cashier.name, cashierId: cashier.id, type: rnd() < .6 ? 'dine' : 'take', table: '', subtotal, discount: 0, service: 0, tax: 0, total: subtotal, method: m.id, methodLabel: m.label, bank: m.needsBank ? pick(cfg.banks.slice(0, 4)) : '', received: subtotal, change: 0, paidAt: at.toISOString(), shiftId: rec.id, status: 'paid', lines };
+                    if (k === 3 && d === 2) Object.assign(sale, { status: 'refunded', refundReason: cfg.refundReasons[1] || 'Batal', refundedBy: 'Sinta', refundedAt: at.toISOString() });
+                    out.push(sale);
+                    if (sale.status === 'paid') rec.sales.push({ queue: q, name: sale.name, method: m.id, bank: sale.bank, total: sale.total, discount: 0, at: sale.paidAt });
+                    if (cust && sale.status === 'paid') { cust.visits++; cust.spent += sale.total; cust.lastVisit = sale.paidAt; }
+                }
+                if (d === 0 && !rec.sales.length) return;
+                rec.cash.push({ kind: 'out', amount: 20000 + Math.floor(rnd() * 3) * 10000, reason: pick(cfg.cashReasons.out.filter((x) => x !== 'Lainnya')), at: rec.openedAt, approvedBy: '' });
+                const s = summarize(rec);
+                const variance = rnd() < .7 ? 0 : -Math.round(rnd() * 6) * 5000;
+                Object.assign(rec, { closedAt: new Date(day.getTime() + th * 3600000).toISOString(), summary: s, counted: s.expected + variance, variance, varianceReason: variance ? 'Salah beri kembalian' : '', approvedBy: Math.abs(variance) > cfg.policy.varianceApprovalAbove ? 'Owner' : '', floatLeft: 300000 });
+                rec.deposit = rec.counted - rec.floatLeft;
+                rec.edc = si === cfg.shifts.length - 1 ? { pos: {}, edc: {}, note: '' } : null;
+                shifts.push(rec);
+            });
+        }
+        data.set('sales', out);
+        data.set('shifts', shifts);
+        data.set('customers', custs);
+        toast('Data contoh 14 hari diisi');
+    }
+
+    /* ================================================================ dialog & lembar */
+    function openDialog(html, { sheet = false } = {}) {
+        const d = sheet ? $('#sheet') : $('#dlg');
+        d.innerHTML = html;
+        d.showModal();
+        return d;
+    }
+    function confirmBox(title, text, okLabel = 'Ya', danger = false) {
+        const d = openDialog(`<form method="dialog"><div class="dlg-head"><h3>${esc(title)}</h3><p>${esc(text)}</p></div>
+            <div class="dlg-foot"><button class="btn" value="cancel">Batal</button><button class="btn ${danger ? 'btn-primary' : 'btn-primary'}" value="ok" id="confirm-ok">${esc(okLabel)}</button></div></form>`);
+        return new Promise((resolve) => d.addEventListener('close', () => resolve(d.returnValue === 'ok'), { once: true }));
+    }
+    document.addEventListener('click', (e) => { if (e.target.closest('[data-close]')) e.target.closest('dialog').close(); });
+
+    /* ================================================================ halaman */
+    const NAV = [
+        { group: 'Utama', items: [{ id: 'dasbor', label: 'Dasbor', icon: 'dash', perm: 'reports' }] },
+        { group: 'Penjualan', items: [
+            { id: 'transaksi', label: 'Transaksi', icon: 'receipt', perm: 'reports' },
+            { id: 'shift', label: 'Shift & kas', icon: 'shift', perm: 'reports' },
+            { id: 'laporan', label: 'Laporan', icon: 'chart', perm: 'reports' },
+        ] },
+        { group: 'Katalog', items: [
+            { id: 'menu', label: 'Menu', icon: 'menu', perm: 'menu' },
+            { id: 'varian', label: 'Kategori & varian', icon: 'layers', perm: 'menu' },
+        ] },
+        { group: 'Relasi', items: [
+            { id: 'pelanggan', label: 'Pelanggan', icon: 'users', perm: 'customers' },
+            { id: 'karyawan', label: 'Karyawan & peran', icon: 'staff', perm: 'staff' },
+        ] },
+    ];
+    const SETTINGS_NAV = { id: 'pengaturan', label: 'Pengaturan', icon: 'gear', perm: 'settings' };
+    const allPages = () => NAV.flatMap((g) => g.items).concat([SETTINGS_NAV]);
+    const route = () => { const [page, sub] = location.hash.replace(/^#\/?/, '').split('/'); return { page: page || '', sub: sub || '' }; };
+    const go = (hash) => { if (location.hash === hash) render(); else location.hash = hash; };
+
+    function render() {
+        cfg = Bangku.config();
+        $$('dialog[open]').forEach((d) => d.close()); // pindah halaman: tutup detail/dialog yang terbuka
+        const user = adminSession.get();
+        const r = route();
+        document.title = 'Panel Admin · ' + cfg.store.name;
+        if (!user) { renderLogin(); return; }
+        const pages = allPages().filter((p) => canDo(p.perm));
+        const current = pages.find((p) => p.id === r.page) || pages[0];
+        if (!current) { renderNoAccess(user); return; }
+        const lateBills = openBills().filter((h) => billAge(h) > Number(cfg.policy.openBillMaxDays)).length;
+        const openReview = closedShifts().filter((s) => s.approvedBy === '' && Math.abs(s.variance || 0) > 0 && !s.reviewedBy).length;
+        $('#app').innerHTML = `<div class="shell" id="shell">
+            <aside class="sidebar" aria-label="Navigasi">
+                <div class="brand"><span class="brand-icon">${icon('menu')}</span><span><b>${esc(cfg.store.name)}</b><small>Panel admin</small></span></div>
+                <nav class="nav">${NAV.map((g) => {
+                    const items = g.items.filter((p) => canDo(p.perm));
+                    return items.length ? `<div class="nav-group">${g.group}</div>` + items.map((p) => `<a href="#/${p.id}" ${p.id === current.id ? 'aria-current="page"' : ''}>${icon(p.icon)}${p.label}${p.id === 'shift' && openReview ? `<span class="count" title="Selisih kas perlu ditinjau">${openReview}</span>` : ''}${p.id === 'transaksi' && lateBills ? `<span class="count" title="Open bill melewati batas umur">${lateBills}</span>` : ''}</a>`).join('') : '';
+                }).join('')}</nav>
+                <div class="side-foot nav">
+                    <a href="masuk.html">${icon('pos')}Buka aplikasi kasir</a>
+                    ${canDo('settings') ? `<a href="#/pengaturan" ${current.id === 'pengaturan' ? 'aria-current="page"' : ''}>${icon('gear')}Pengaturan</a>` : ''}
+                    <div class="user"><span class="av">${esc(user.name.slice(0, 2).toUpperCase())}</span><span><b>${esc(user.name)}</b><small>${esc(Bangku.roleOf(cfg, user).name)} · ${esc(user.email)}</small></span>
+                        <button class="icon-btn btn-ghost" id="logout" type="button" aria-label="Keluar" title="Keluar">${icon('out')}</button></div>
+                </div>
+            </aside>
+            <div class="scrim" id="scrim"></div>
+            <section class="content">
+                <header class="topbar">
+                    <button class="icon-btn btn-ghost menu-btn" id="menu-btn" type="button" aria-label="Buka navigasi">${icon('bars')}</button>
+                    <h2>${esc(current.label)}</h2>
+                    <span class="spacer"></span>
+                    <span class="hide-sm badge muted">${esc(new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }))}</span>
+                    <button class="icon-btn" id="theme" type="button" aria-label="Ganti tema terang/gelap">${icon('moon')}</button>
+                </header>
+                <div class="page" id="page"></div>
+            </section>
+        </div>`;
+        Bangku.initTheme($('#theme'));
+        $('#logout').addEventListener('click', () => { adminSession.end(); go('#/'); });
+        $('#menu-btn').addEventListener('click', () => $('#shell').classList.add('nav-open'));
+        $('#scrim').addEventListener('click', () => $('#shell').classList.remove('nav-open'));
+        PAGES[current.id]($('#page'), r.sub);
+    }
+    window.addEventListener('hashchange', render);
+
+    function renderNoAccess(user) {
+        $('#app').innerHTML = `<div class="auth"><div class="card" style="padding:24px;max-width:420px;display:grid;gap:12px"><h3>Tidak ada akses</h3><p>${esc(user.name)} tidak punya hak membuka halaman panel. Minta owner menambah hak di Karyawan & peran.</p><button class="btn" id="logout">Keluar</button></div></div>`;
+        $('#logout').addEventListener('click', () => { adminSession.end(); render(); });
+    }
+
+    /* ---------- masuk admin: email + kata sandi (kasir memakai PIN di tablet) ---------- */
+    function renderLogin() {
+        const demo = cfg.staff.filter((s) => Bangku.can(cfg, s, 'admin') && s.email);
+        $('#app').innerHTML = `<div class="auth"><div style="width:min(920px,100%)">
+            <div class="auth-card">
+                <form class="auth-form" id="login-form" novalidate>
+                    <span class="logo">${icon('menu')}</span>
+                    <h1>Selamat datang kembali</h1>
+                    <p class="sub">Masuk ke panel admin ${esc(cfg.store.name)}</p>
+                    <label class="field"><span>Email</span><input class="input" id="email" type="email" autocomplete="username" placeholder="nama@bangkucoffee.id" required></label>
+                    <label class="field"><span>Kata sandi</span><span class="pw"><input class="input" id="password" type="password" autocomplete="current-password" required><button type="button" id="pw-toggle" aria-label="Tampilkan kata sandi">${icon('eye')}</button></span></label>
+                    <p class="auth-err" id="login-err" hidden></p>
+                    <button class="btn btn-primary" type="submit">Masuk</button>
+                    <p class="hint" style="text-align:center">Akun dibuat owner di Karyawan & peran. Mockup: ${demo.map((s) => `${esc(s.email)} / ${esc(s.password)}`).join(' · ')}</p>
+                </form>
+                <div class="auth-art"><b>Kelola menu, kasir, shift, dan laporan ${esc(cfg.store.name)} dalam satu panel.</b><span>Kasir masuk dengan PIN di tablet; panel ini untuk owner & kepala toko.</span></div>
+            </div>
+            <p class="auth-foot"><a href="masuk.html">Ke aplikasi kasir (tablet)</a></p>
+        </div></div>`;
+        $('#pw-toggle').addEventListener('click', () => { const i = $('#password'); i.type = i.type === 'password' ? 'text' : 'password'; });
+        $('#login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = $('#email').value.trim().toLowerCase();
+            const pw = $('#password').value;
+            const err = $('#login-err');
+            const tries = data.get('adminTries', { n: 0, until: 0 });
+            if (tries.until > Date.now()) { err.hidden = false; err.textContent = `Terlalu banyak percobaan. Coba lagi dalam ${Math.ceil((tries.until - Date.now()) / 1000)} detik.`; return; }
+            if (!email || !pw) { err.hidden = false; err.textContent = 'Email dan kata sandi wajib diisi.'; return; }
+            const u = cfg.staff.find((s) => s.email && s.email.toLowerCase() === email && s.password === pw && s.active);
+            if (!u || !Bangku.can(cfg, u, 'admin')) {
+                const n = tries.n + 1;
+                data.set('adminTries', n >= cfg.policy.maxPinAttempts ? { n: 0, until: Date.now() + cfg.policy.lockSeconds * 1000 } : { n, until: 0 });
+                err.hidden = false;
+                err.textContent = u ? 'Akun ini tidak punya akses panel admin.' : 'Email atau kata sandi salah.';
+                return;
+            }
+            data.set('adminTries', { n: 0, until: 0 });
+            adminSession.start(u);
+            go('#/');
+        });
+    }
+
+    /* ---------- komponen kecil ---------- */
+    const statCard = (label, value, note) => `<div class="card stat"><span>${label}</span><b>${value}</b>${note ? `<small>${note}</small>` : ''}</div>`;
+    const barRows = (rows) => { const max = Math.max(1, ...rows.map((r) => r[1])); return `<div class="bars">${rows.map(([k, v, extra]) => `<div class="bar-row"><span title="${esc(k)}">${esc(k)}</span><span class="bar"><i style="width:${(v / max * 100).toFixed(1)}%"></i></span><span>${extra ?? rp(v)}</span></div>`).join('')}</div>`; };
+    function barChart(points) {
+        const W = 640; const H = 220; const pad = 28; const max = Math.max(1, ...points.map((p) => p[1]));
+        const bw = (W - pad) / points.length;
+        return `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Grafik penjualan">
+            ${[0, .5, 1].map((f) => `<line class="g" x1="${pad}" x2="${W}" y1="${10 + (H - 40) * (1 - f)}" y2="${10 + (H - 40) * (1 - f)}"/>`).join('')}
+            ${points.map(([label, v], i) => { const h = (H - 40) * v / max; return `<rect class="b" rx="3" x="${pad + i * bw + bw * .18}" y="${10 + (H - 40) - h}" width="${bw * .64}" height="${Math.max(0, h)}"><title>${esc(label)}: ${rp(v)}</title></rect><text x="${pad + i * bw + bw / 2}" y="${H - 12}" text-anchor="middle">${esc(label)}</text>`; }).join('')}
+            <text x="0" y="16">${money(max / 1000)}rb</text>
+        </svg>`;
+    }
+    const emptyState = (text, action = '') => `<div class="empty-state"><span>${text}</span>${action}</div>`;
+    const seedButton = () => (canDo('settings') ? '<button class="btn" type="button" data-seed>Isi data contoh 14 hari</button>' : '');
+    document.addEventListener('click', (e) => { if (e.target.closest('[data-seed]')) { seedDemo(); render(); } });
+
+    const PAGES = {};
+
+    /* ---------- dasbor ---------- */
+    PAGES.dasbor = (el) => {
+        const today = daysAgo(0);
+        const t = paidSales(today);
+        const y = sales().filter((x) => x.status !== 'refunded' && inRange(x.paidAt, daysAgo(1)) && !inRange(x.paidAt, today));
+        const sum = (list) => list.reduce((n, x) => n + x.total, 0);
+        const pct = (a, b) => (b ? ((a - b) / b * 100).toFixed(1).replace('.', ',') + '% dari kemarin' : 'belum ada data kemarin');
+        const week = Array.from({ length: 7 }, (_, i) => { const from = daysAgo(6 - i); const to = daysAgo(5 - i); const v = sum(sales().filter((x) => x.status !== 'refunded' && new Date(x.paidAt) >= from && new Date(x.paidAt) < to)); return [from.toLocaleDateString('id-ID', { weekday: 'short' }), v]; });
+        const byMethod = cfg.payments.map((m) => [m.label, sum(t.filter((x) => x.method === m.id))]).filter((r) => r[1]);
+        const qty = {}; t.forEach((x) => x.lines.forEach((l) => { qty[l.name] = (qty[l.name] || 0) + l.qty; }));
+        const top = Object.entries(qty).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k, v]) => [k, v, v + '×']);
+        const open = data.get('shift', null);
+        const todayShifts = closedShifts().filter((s) => s.day === Bangku.todayKey());
+        const variance = todayShifts.reduce((n, s) => n + (s.variance || 0), 0);
+        setTimeout(() => $('#to-open')?.addEventListener('click', () => { tState.method = 'open'; }), 0);
+        el.innerHTML = `
+            <div class="page-head"><div><h1>Dasbor</h1><p>Ringkasan hari ini, ${esc(new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }))}.</p></div>
+                <div class="actions">${sales().length ? '' : seedButton()}<a class="btn" href="#/laporan">Lihat laporan</a></div></div>
+            <div class="stats">
+                ${statCard('Penjualan hari ini', rp(sum(t)), pct(sum(t), sum(y)))}
+                ${statCard('Transaksi', t.length, `rata-rata ${rp(t.length ? sum(t) / t.length : 0)}`)}
+                ${statCard('Pelanggan terdaftar', Bangku.customers.all().length, `${t.filter((x) => x.customerId).length} transaksi member hari ini`)}
+                ${statCard('Selisih kas hari ini', (variance < 0 ? '−' : '') + rp(Math.abs(variance)), `${todayShifts.length} shift ditutup`)}
+            </div>
+            <div class="grid2">
+                <div class="card"><div class="card-head"><div><h3>Penjualan 7 hari</h3><p>Total per hari (tanpa refund)</p></div></div><div class="card-body">${barChart(week)}</div></div>
+                <div class="card"><div class="card-head"><div><h3>Metode bayar hari ini</h3><p>Tunai masuk laci; QRIS & kartu lewat EDC</p></div></div><div class="card-body">${byMethod.length ? barRows(byMethod) : emptyState('Belum ada transaksi hari ini.')}</div></div>
+            </div>
+            <div class="grid-half">
+                <div class="card"><div class="card-head"><div><h3>Menu terlaris hari ini</h3></div></div><div class="card-body">${top.length ? barRows(top) : emptyState('Belum ada transaksi hari ini.')}</div></div>
+                <div class="card"><div class="card-head"><div><h3>Shift hari ini</h3></div><a class="btn" href="#/shift">Semua shift</a></div><div class="card-body"><div class="kv">
+                    ${open ? `<div><span>Shift ${esc(open.name)} · ${esc(open.cashier)} <span class="badge ok">berjalan</span></span><span>${rp(summarize(open).total)}</span></div>` : '<div><span>Tidak ada shift berjalan</span><span></span></div>'}
+                    ${openBills().length ? `<div><span><a href="#/transaksi" id="to-open">${openBills().length} open bill belum dibayar</a> ${openBills().some((h) => billAge(h) > Number(cfg.policy.openBillMaxDays)) ? '<span class="badge bad">ada yang lewat batas</span>' : ''}</span><span>${rp(openBills().reduce((n, h) => n + (h.total || 0), 0))}</span></div>` : ''}
+                    ${todayShifts.map((s) => `<div><span>Shift ${esc(s.name)} · ${esc(s.cashier)} ${s.variance ? `<span class="badge bad">selisih ${s.variance < 0 ? '−' : '+'}${money(Math.abs(s.variance))}</span>` : '<span class="badge ok">sesuai</span>'}</span><span>${rp(s.summary.total)}</span></div>`).join('')}
+                </div></div></div>
+            </div>`;
+    };
+
+    /* ---------- transaksi ---------- */
+    const tState = { q: '', method: '', range: '7' };
+    PAGES.transaksi = (el) => {
+        const from = tState.range === 'all' ? new Date(0) : daysAgo(Number(tState.range) - 1);
+        const q = tState.q.trim().toLowerCase();
+        if (tState.method === 'open') { renderOpenBills(el); return; }
+        const list = sales().filter((x) => inRange(x.paidAt, from) && (!tState.method || (tState.method === 'refund' ? x.status === 'refunded' : x.method === tState.method)) && (!q || [x.code, x.name, x.cashier].some((v) => String(v).toLowerCase().includes(q)))).sort((a, b) => b.paidAt.localeCompare(a.paidAt));
+        const shown = list.slice(0, 100);
+        el.innerHTML = `
+            <div class="page-head"><div><h1>Transaksi</h1><p>${list.length} transaksi · ${rp(list.filter((x) => x.status !== 'refunded').reduce((n, x) => n + x.total, 0))}</p></div>
+                <div class="actions"><button class="btn" type="button" id="csv">Unduh CSV</button></div></div>
+            <div class="toolbar">
+                <div class="tabs" id="t-method">${[['', 'Semua'], ...cfg.payments.filter((p) => p.active).map((p) => [p.id, p.label]), ['refund', 'Refund'], ['open', `Open bill (${openBills().length})`]].map(([id, l]) => `<button type="button" data-v="${esc(id)}" aria-pressed="${tState.method === id}">${esc(l)}</button>`).join('')}</div>
+                <select class="select" id="t-range" aria-label="Periode">${[['1', 'Hari ini'], ['7', '7 hari'], ['30', '30 hari'], ['all', 'Semua']].map(([v, l]) => `<option value="${v}" ${tState.range === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+                <input class="input" id="t-q" type="search" placeholder="Cari no., pelanggan, kasir…" value="${esc(tState.q)}">
+            </div>
+            ${list.length ? `<div class="table-wrap"><table><thead><tr><th>No.</th><th>Waktu</th><th>Pelanggan</th><th>Kasir</th><th>Metode</th><th>Status</th><th class="num">Total</th></tr></thead><tbody>
+                ${shown.map((x, i) => `<tr data-open="${i}"><td class="mono">${esc(x.code)}</td><td>${fmtDate(x.paidAt)} ${fmtTime(x.paidAt)}</td><td>${esc(x.name || '–')}${x.customerId ? ' <span class="badge muted">member</span>' : ''}</td><td>${esc(x.cashier)}</td><td>${esc(x.methodLabel || methodOf(x.method).label)}${x.bank ? ' ' + esc(x.bank) : ''}</td><td>${x.status === 'refunded' ? '<span class="badge bad">Refund</span>' : '<span class="badge ok">Lunas</span>'}</td><td class="num">${rp(x.total)}</td></tr>`).join('')}
+            </tbody></table></div>${list.length > shown.length ? `<p class="hint">Menampilkan 100 terbaru dari ${list.length}. Persempit dengan filter.</p>` : ''}` : emptyState('Belum ada transaksi pada filter ini.', sales().length ? '' : seedButton())}`;
+        $('#t-method').addEventListener('click', (e) => { const b = e.target.closest('[data-v]'); if (b) { tState.method = b.dataset.v; render(); } });
+        $('#t-range').addEventListener('change', (e) => { tState.range = e.target.value; render(); });
+        $('#t-q').addEventListener('input', (e) => { tState.q = e.target.value; clearTimeout(PAGES.tq); PAGES.tq = setTimeout(() => { render(); const i = $('#t-q'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }, 250); });
+        $('#csv').addEventListener('click', () => downloadCsv('transaksi.csv', [['No', 'Waktu', 'Pelanggan', 'Kasir', 'Jenis', 'Metode', 'Bank', 'Subtotal', 'Diskon', 'Service', 'Pajak', 'Total', 'Status'], ...list.map((x) => [x.code, x.paidAt, x.name, x.cashier, x.type, x.methodLabel, x.bank, x.subtotal, x.discount, x.service, x.tax, x.total, x.status])]));
+        $$('tr[data-open]', el).forEach((tr) => tr.addEventListener('click', () => openSale(shown[Number(tr.dataset.open)])));
+    };
+    /* Open bill: pesanan disimpan (bayar nanti) yang belum dibayar — bisa lewat shift/hari. */
+    function renderOpenBills(el) {
+        const list = openBills().slice().sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+        const max = Number(cfg.policy.openBillMaxDays);
+        el.innerHTML = `
+            <div class="page-head"><div><h1>Transaksi</h1><p>${list.length} open bill belum dibayar · ${rp(list.reduce((n, h) => n + (h.total || 0), 0))} · belum dihitung sebagai penjualan</p></div></div>
+            <div class="toolbar"><div class="tabs" id="t-method">${[['', 'Semua'], ...cfg.payments.filter((p) => p.active).map((p) => [p.id, p.label]), ['refund', 'Refund'], ['open', `Open bill (${list.length})`]].map(([id, l]) => `<button type="button" data-v="${esc(id)}" aria-pressed="${tState.method === id}">${esc(l)}</button>`).join('')}</div></div>
+            <p class="note">Open bill dialihkan otomatis saat tutup shift${cfg.policy.openBillDayApproval ? '; lewat hari perlu persetujuan' : ''}. Di atas ${max} hari ditandai merah: tagih pelanggan atau batalkan dengan alasan.</p>
+            ${list.length ? `<div class="table-wrap"><table><thead><tr><th>No.</th><th>Dibuat</th><th>Pelanggan</th><th>Jenis</th><th>Umur</th><th class="num">Total</th></tr></thead><tbody>
+                ${list.map((h, i) => { const age = billAge(h); return `<tr data-open="${i}"><td class="mono">${esc(h.code || '#' + h.queue)}</td><td>${fmtDate(h.createdAt)} ${fmtTime(h.createdAt)}</td><td>${esc(h.name)}${h.customerId ? ' <span class="badge muted">member</span>' : ''}</td>
+                    <td>${esc((cfg.orderTypes.find((t) => t.id === h.type) || { label: h.type }).label)}${h.table ? ' · Meja ' + esc(h.table) : ''}</td>
+                    <td>${age > max ? `<span class="badge bad">${age} hari</span>` : age ? `<span class="badge warn">${age} hari</span>` : '<span class="badge ok">hari ini</span>'}</td><td class="num">${rp(h.total || 0)}</td></tr>`; }).join('')}
+            </tbody></table></div>` : emptyState('Tidak ada open bill.')}`;
+        $('#t-method').addEventListener('click', (e) => { const b = e.target.closest('[data-v]'); if (b) { tState.method = b.dataset.v; render(); } });
+        $$('tr[data-open]', el).forEach((tr) => tr.addEventListener('click', () => openBill(list[Number(tr.dataset.open)])));
+    }
+    function openBill(h) {
+        const d = openDialog(`<div class="dlg-head"><h3>Open bill ${esc(h.code || '#' + h.queue)}</h3><p>${esc(h.name)} · dibuat ${fmtDate(h.createdAt, { weekday: 'long', day: 'numeric', month: 'long' })} ${fmtTime(h.createdAt)}${h.carriedFrom ? ' · dialihkan dari shift ' + esc(h.carriedFrom) : ''}</p></div>
+            <div class="dlg-body">
+                <div class="table-wrap"><table><thead><tr><th>Item</th><th class="num">Jml</th><th>Tiket</th></tr></thead><tbody>${h.lines.map((l) => `<tr><td>${esc(itemName(l.id))}${l.note ? `<span class="sub">"${esc(l.note)}"</span>` : ''}</td><td class="num">${l.qty}</td><td>${(l.printed || 0) >= l.qty ? '<span class="badge ok">sudah dibuat</span>' : '<span class="badge muted">belum</span>'}</td></tr>`).join('')}</tbody></table></div>
+                <div class="kv"><div class="total"><span>Total</span><span>${rp(h.total || 0)}</span></div></div>
+                <p class="hint">Dibayar dari tablet kasir (tombol Tersimpan). Dibatalkan di sini bila pelanggan tidak kembali / salah input — item yang sudah dibuat tercatat sebagai kerugian.</p>
+                ${canDo('approve') ? `<label class="field"><span>Batalkan — alasan</span><select class="select" id="void-reason">${(cfg.voidReasons || []).map((r) => `<option>${esc(r)}</option>`).join('')}</select></label>` : ''}
+            </div>
+            <div class="dlg-foot"><button class="btn" data-close>Tutup</button>${canDo('approve') ? '<button class="btn btn-primary" id="void">Batalkan open bill</button>' : ''}</div>`, { sheet: true });
+        $('#void', d)?.addEventListener('click', async () => {
+            const reason = $('#void-reason', d).value;
+            d.close();
+            if (!(await confirmBox('Batalkan open bill?', `${h.code || '#' + h.queue} ${h.name} · ${rp(h.total || 0)} · ${reason}`, 'Batalkan'))) return;
+            data.set('held', openBills().filter((x) => x.uid !== h.uid));
+            data.set('voids', data.get('voids', []).concat([{ ...h, voidReason: reason, voidedBy: adminSession.get().name, voidedAt: new Date().toISOString() }]));
+            toast('Open bill dibatalkan & dicatat');
+            render();
+        });
+    }
+    function openSale(x) {
+        const d = openDialog(`<div class="dlg-head"><h3>Transaksi ${esc(x.code)}</h3><p>${fmtDate(x.paidAt, { weekday: 'long', day: 'numeric', month: 'long' })} ${fmtTime(x.paidAt)} · Kasir ${esc(x.cashier)}</p></div>
+            <div class="dlg-body">
+                ${x.status === 'refunded' ? `<p class="note">Refund oleh ${esc(x.refundedBy)} · ${esc(x.refundReason)} · ${fmtDate(x.refundedAt)} ${fmtTime(x.refundedAt)}</p>` : ''}
+                <div class="kv"><div><span>Pelanggan</span><span>${esc(x.name || '–')}${x.customerId ? ' (member)' : ''}</span></div><div><span>Jenis</span><span>${esc((cfg.orderTypes.find((t) => t.id === x.type) || { label: x.type }).label)}${x.table ? ' · Meja ' + esc(x.table) : ''}</span></div></div>
+                <div class="table-wrap"><table><thead><tr><th>Item</th><th class="num">Jml</th><th class="num">Harga</th></tr></thead><tbody>
+                    ${x.lines.map((l) => `<tr><td class="wrap">${esc(l.name)}${l.opts && l.opts.length ? `<span class="sub">${esc(l.opts.join(' · '))}</span>` : ''}</td><td class="num">${l.qty}</td><td class="num">${rp(l.price * l.qty)}</td></tr>`).join('')}
+                </tbody></table></div>
+                <div class="kv"><div><span>Subtotal</span><span>${rp(x.subtotal)}</span></div>${x.discount ? `<div><span>Diskon</span><span>−${rp(x.discount)}</span></div>` : ''}${x.service ? `<div><span>${esc(cfg.charges.serviceLabel)}</span><span>${rp(x.service)}</span></div>` : ''}${x.tax ? `<div><span>${esc(cfg.charges.taxLabel)}</span><span>${rp(x.tax)}</span></div>` : ''}
+                    <div class="total"><span>Total</span><span>${rp(x.total)}</span></div><div><span>${esc(x.methodLabel || x.method)}${x.bank ? ' ' + esc(x.bank) : ''}</span><span>${rp(x.received)}</span></div>${x.change ? `<div><span>Kembali</span><span>${rp(x.change)}</span></div>` : ''}</div>
+                ${x.status !== 'refunded' && canDo('approve') ? `<div class="field"><span>Refund — alasan</span><select class="select" id="refund-reason">${cfg.refundReasons.map((r) => `<option>${esc(r)}</option>`).join('')}</select><small>Refund tercatat atas nama Anda${cfg.policy.refundNeedsApproval ? ' (perlu hak menyetujui)' : ''}. Uang tunai dikembalikan dari laci shift berjalan.</small></div>` : ''}
+            </div>
+            <div class="dlg-foot"><button class="btn" data-close>Tutup</button>${x.status !== 'refunded' && canDo('approve') ? '<button class="btn btn-primary" id="refund">Refund transaksi</button>' : ''}</div>`, { sheet: true });
+        $('#refund', d)?.addEventListener('click', async () => {
+            const reason = $('#refund-reason', d).value;
+            d.close();
+            if (!(await confirmBox('Refund transaksi?', `${x.code} · ${rp(x.total)} · ${reason}`, 'Refund'))) return;
+            const list = sales();
+            const s = list.find((y) => y.code === x.code && y.paidAt === x.paidAt);
+            Object.assign(s, { status: 'refunded', refundReason: reason, refundedBy: adminSession.get().name, refundedAt: new Date().toISOString() });
+            data.set('sales', list);
+            toast('Transaksi direfund');
+            render();
+        });
+    }
+    function downloadCsv(name, rows) {
+        const csv = rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')).join('\n');
+        try {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' }));
+            a.download = name;
+            a.click();
+            toast('CSV diunduh');
+        } catch { toast('Unduhan tidak didukung di sini'); }
+    }
+
+    /* ---------- shift & kas ---------- */
+    PAGES.shift = (el) => {
+        const open = data.get('shift', null);
+        const list = closedShifts().slice().reverse();
+        el.innerHTML = `
+            <div class="page-head"><div><h1>Shift & kas</h1><p>Modal, penjualan, selisih kas, setoran ke owner, dan settlement EDC per shift.</p></div></div>
+            ${open ? `<div class="card"><div class="card-head"><div><h3>Shift ${esc(open.name)} sedang berjalan</h3><p>${esc(open.cashier)} · dibuka ${fmtTime(open.openedAt)} · modal ${rp(open.float)}</p></div><span class="badge ok">berjalan</span></div>
+                <div class="card-body"><div class="stats">${statCard('Penjualan', rp(summarize(open).total), summarize(open).count + ' transaksi')}${statCard('Tunai masuk laci', rp(summarize(open).cash))}${statCard('Kas keluar', rp(summarize(open).cashOut))}${statCard('Seharusnya di laci', rp(summarize(open).expected))}</div></div></div>` : ''}
+            ${list.length ? `<div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Shift</th><th>Kasir</th><th class="num">Modal</th><th class="num">Penjualan</th><th class="num">Selisih</th><th class="num">Setor owner</th><th>Status</th></tr></thead><tbody>
+                ${list.map((s, i) => `<tr data-open="${i}"><td>${fmtDate(s.openedAt, { weekday: 'short', day: '2-digit', month: 'short' })}</td><td>${esc(s.name)}${s.edc ? ' <span class="badge muted">tutup hari</span>' : ''}</td><td>${esc(s.cashier)}</td><td class="num">${rp(s.float)}</td><td class="num">${rp(s.summary.total)}</td>
+                    <td class="num">${s.variance ? `<span class="badge bad">${s.variance < 0 ? '−' : '+'}${money(Math.abs(s.variance))}</span>` : '<span class="badge ok">0</span>'}</td><td class="num">${rp(s.deposit)}</td>
+                    <td>${s.depositReceivedBy ? '<span class="badge ok">setoran diterima</span>' : '<span class="badge warn">belum diterima</span>'}</td></tr>`).join('')}
+            </tbody></table></div>` : emptyState('Belum ada shift yang ditutup.', seedButton())}`;
+        $$('tr[data-open]', el).forEach((tr) => tr.addEventListener('click', () => openShift(list[Number(tr.dataset.open)])));
+    };
+    function openShift(s) {
+        const sm = s.summary;
+        const d = openDialog(`<div class="dlg-head"><h3>Shift ${esc(s.name)} · ${esc(s.cashier)}</h3><p>${fmtDate(s.openedAt, { weekday: 'long', day: 'numeric', month: 'long' })} · ${fmtTime(s.openedAt)}–${fmtTime(s.closedAt)}</p></div>
+            <div class="dlg-body">
+                <div class="kv">${cfg.payments.filter((m) => sm.by[m.id]).map((m) => `<div><span>${esc(m.label)}</span><span>${rp(sm.by[m.id])}</span></div>`).join('')}<div class="total"><span>Penjualan (${sm.count} trx)</span><span>${rp(sm.total)}</span></div></div>
+                <div class="kv"><div><span>Modal awal</span><span>${rp(s.float)}</span></div><div><span>Penjualan tunai</span><span>+${rp(sm.cash)}</span></div><div><span>Kas masuk</span><span>+${rp(sm.cashIn)}</span></div><div><span>Kas keluar</span><span>−${rp(sm.cashOut)}</span></div>
+                    <div class="total"><span>Seharusnya</span><span>${rp(sm.expected)}</span></div><div><span>Dihitung</span><span>${rp(s.counted)}</span></div><div class="total"><span>Selisih</span><span>${s.variance < 0 ? '−' : s.variance > 0 ? '+' : ''}${rp(Math.abs(s.variance))}</span></div>
+                    ${s.variance ? `<div><span>Alasan</span><span>${esc(s.varianceReason)}${s.approvedBy ? ' · disetujui ' + esc(s.approvedBy) : ''}</span></div>` : ''}</div>
+                ${(s.cash || []).length ? `<div class="kv">${s.cash.map((c) => `<div><span>${c.kind === 'in' ? 'Masuk' : 'Keluar'} · ${esc(c.reason)}${c.approvedBy ? ' · disetujui ' + esc(c.approvedBy) : ''}</span><span>${c.kind === 'in' ? '+' : '−'}${rp(c.amount)}</span></div>`).join('')}</div>` : ''}
+                <div class="kv"><div class="total"><span>Diserahkan ke owner</span><span>${rp(s.deposit)}</span></div><div><span>Modal ditinggal</span><span>${rp(s.floatLeft)}</span></div>${s.depositReceivedBy ? `<div><span>Diterima</span><span>${esc(s.depositReceivedBy)} · ${fmtDate(s.depositReceivedAt)} ${fmtTime(s.depositReceivedAt)}</span></div>` : ''}</div>
+                ${s.edc && Object.keys(s.edc.pos || {}).length ? `<div class="kv">${Object.keys(s.edc.pos).map((k) => `<div><span>EDC ${esc(k)} · POS ${rp(s.edc.pos[k])}</span><span>${rp(s.edc.edc[k] ?? 0)}</span></div>`).join('')}${s.edc.note ? `<div><span>Catatan</span><span>${esc(s.edc.note)}</span></div>` : ''}</div>` : ''}
+            </div>
+            <div class="dlg-foot"><button class="btn" data-close>Tutup</button>${!s.depositReceivedBy && canDo('approve') ? '<button class="btn btn-primary" id="receive">Tandai setoran diterima</button>' : ''}</div>`, { sheet: true });
+        $('#receive', d)?.addEventListener('click', () => {
+            const list = closedShifts();
+            const x = list.find((y) => y.id === s.id);
+            Object.assign(x, { depositReceivedBy: adminSession.get().name, depositReceivedAt: new Date().toISOString(), reviewedBy: adminSession.get().name });
+            data.set('shifts', list);
+            d.close();
+            toast('Setoran ditandai diterima');
+            render();
+        });
+    }
+
+    /* ---------- laporan ---------- */
+    const rState = { range: '7' };
+    PAGES.laporan = (el) => {
+        const from = rState.range === 'month' ? new Date(new Date().getFullYear(), new Date().getMonth(), 1) : daysAgo(Number(rState.range) - 1);
+        const list = paidSales(from);
+        const refunds = sales().filter((x) => x.status === 'refunded' && inRange(x.paidAt, from));
+        const sum = (l) => l.reduce((n, x) => n + x.total, 0);
+        const group = (keyFn) => { const m = {}; list.forEach((x) => { const k = keyFn(x); m[k] = (m[k] || 0) + x.total; }); return Object.entries(m).sort((a, b) => b[1] - a[1]); };
+        const items = {}; const cats = {}; const hours = Array(24).fill(0);
+        list.forEach((x) => { hours[new Date(x.paidAt).getHours()] += x.total; x.lines.forEach((l) => { const it = items[l.name] || (items[l.name] = { qty: 0, total: 0, cat: catOf(l.categoryId).name }); it.qty += l.qty; it.total += l.price * l.qty; cats[catOf(l.categoryId).name] = (cats[catOf(l.categoryId).name] || 0) + l.price * l.qty; }); });
+        const activeHours = hours.map((v, h) => [String(h).padStart(2, '0'), v]).filter(([, v], h) => v || cfg.shifts.some((s) => h >= Number(s.from.slice(0, 2)) && h < Number(s.to.slice(0, 2))));
+        el.innerHTML = `
+            <div class="page-head"><div><h1>Laporan</h1><p>Omzet bersih (tanpa refund) per menu, kategori, metode, kasir, dan jam.</p></div>
+                <div class="actions"><div class="tabs" id="r-range">${[['1', 'Hari ini'], ['7', '7 hari'], ['30', '30 hari'], ['month', 'Bulan ini']].map(([v, l]) => `<button type="button" data-v="${v}" aria-pressed="${rState.range === v}">${l}</button>`).join('')}</div>
+                <button class="btn" type="button" id="csv">Unduh CSV menu</button></div></div>
+            <div class="stats">${statCard('Omzet', rp(sum(list)))}${statCard('Transaksi', list.length, 'rata-rata ' + rp(list.length ? sum(list) / list.length : 0))}${statCard('Diskon diberikan', rp(list.reduce((n, x) => n + (x.discount || 0), 0)))}${statCard('Refund', rp(sum(refunds)), refunds.length + ' transaksi')}</div>
+            ${list.length ? `<div class="card"><div class="card-head"><div><h3>Jam ramai</h3><p>Omzet per jam — bantu atur jumlah staf per shift</p></div></div><div class="card-body">${barChart(activeHours)}</div></div>
+            <div class="grid-half">
+                <div class="card"><div class="card-head"><h3>Per kategori</h3></div><div class="card-body">${barRows(Object.entries(cats).sort((a, b) => b[1] - a[1]))}</div></div>
+                <div class="card"><div class="card-head"><h3>Per metode bayar</h3></div><div class="card-body">${barRows(group((x) => (x.methodLabel || methodOf(x.method).label) + (x.bank ? ' ' + x.bank : '')))}</div></div>
+                <div class="card"><div class="card-head"><h3>Per kasir</h3></div><div class="card-body">${barRows(group((x) => x.cashier))}</div></div>
+                <div class="card"><div class="card-head"><h3>Per jenis pesanan</h3></div><div class="card-body">${barRows(group((x) => (cfg.orderTypes.find((t) => t.id === x.type) || { label: x.type }).label))}</div></div>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Menu</th><th>Kategori</th><th class="num">Terjual</th><th class="num">Omzet</th></tr></thead><tbody>
+                ${Object.entries(items).sort((a, b) => b[1].total - a[1].total).map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v.cat)}</td><td class="num">${v.qty}</td><td class="num">${rp(v.total)}</td></tr>`).join('')}
+            </tbody></table></div>` : emptyState('Belum ada transaksi pada periode ini.', sales().length ? '' : seedButton())}`;
+        $('#r-range').addEventListener('click', (e) => { const b = e.target.closest('[data-v]'); if (b) { rState.range = b.dataset.v; render(); } });
+        $('#csv').addEventListener('click', () => downloadCsv('laporan-menu.csv', [['Menu', 'Kategori', 'Terjual', 'Omzet'], ...Object.entries(items).map(([k, v]) => [k, v.cat, v.qty, v.total])]));
+    };
+
+    /* ---------- menu ---------- */
+    const mState = { q: '', cat: '' };
+    PAGES.menu = (el) => {
+        const q = mState.q.trim().toLowerCase();
+        const list = cfg.items.filter((i) => (!mState.cat || i.categoryId === mState.cat) && (!q || i.name.toLowerCase().includes(q)));
+        el.innerHTML = `
+            <div class="page-head"><div><h1>Menu</h1><p>${cfg.items.filter((i) => i.active).length} menu aktif di kasir · ${cfg.items.filter((i) => i.soldOut).length} habis</p></div>
+                <div class="actions"><button class="btn btn-primary" type="button" id="add">${icon('plus')}Tambah menu</button></div></div>
+            <div class="toolbar">
+                <div class="tabs" id="m-cat">${[{ id: '', name: 'Semua' }, ...cfg.categories].map((c) => `<button type="button" data-v="${esc(c.id)}" aria-pressed="${mState.cat === c.id}">${esc(c.name)}</button>`).join('')}</div>
+                <input class="input" id="m-q" type="search" placeholder="Cari menu…" value="${esc(mState.q)}">
+            </div>
+            ${list.length ? `<div class="table-wrap"><table><thead><tr><th>Menu</th><th>Kategori</th><th class="num">Harga</th><th>Varian</th><th>Tersedia</th><th>Tampil di kasir</th></tr></thead><tbody>
+                ${list.map((i) => `<tr data-open="${i.id}"><td><span class="name-cell"><span class="thumb">${esc(i.emoji || '•')}</span><span>${esc(i.name)}${i.best ? ' <span class="badge muted">terlaris</span>' : ''}</span></span></td><td>${esc(catOf(i.categoryId).name)}<span class="sub">${esc(catOf(i.categoryId).station)}</span></td><td class="num">${rp(i.price)}</td>
+                    <td class="wrap">${(i.groups || []).map((g) => (cfg.modifierGroups.find((x) => x.id === g) || {}).name).filter(Boolean).map((n) => `<span class="badge muted">${esc(n)}</span>`).join(' ') || '–'}</td>
+                    <td><button type="button" class="switch" role="switch" data-toggle="soldOut" data-id="${i.id}" aria-checked="${!i.soldOut}" aria-label="Tersedia ${esc(i.name)}"></button></td>
+                    <td><button type="button" class="switch" role="switch" data-toggle="active" data-id="${i.id}" aria-checked="${i.active}" aria-label="Tampil ${esc(i.name)}"></button></td></tr>`).join('')}
+            </tbody></table></div>` : emptyState('Tidak ada menu pada filter ini.')}`;
+        $('#m-cat').addEventListener('click', (e) => { const b = e.target.closest('[data-v]'); if (b) { mState.cat = b.dataset.v; render(); } });
+        $('#m-q').addEventListener('input', (e) => { mState.q = e.target.value; clearTimeout(PAGES.mq); PAGES.mq = setTimeout(() => { render(); const i = $('#m-q'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }, 250); });
+        $('#add').addEventListener('click', () => editItem(null));
+        $$('[data-toggle]', el).forEach((b) => b.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const it = cfg.items.find((x) => x.id === Number(b.dataset.id));
+            if (b.dataset.toggle === 'soldOut') it.soldOut = !it.soldOut; else it.active = !it.active;
+            saveCfg();
+            toast(`${it.name}: ${b.dataset.toggle === 'soldOut' ? (it.soldOut ? 'habis' : 'tersedia') : (it.active ? 'tampil di kasir' : 'disembunyikan')}`);
+            render();
+        }));
+        $$('tr[data-open]', el).forEach((tr) => tr.addEventListener('click', () => editItem(cfg.items.find((x) => x.id === Number(tr.dataset.open)))));
+    };
+    function editItem(it) {
+        const isNew = !it;
+        const x = it ? clone(it) : { id: Math.max(0, ...cfg.items.map((i) => i.id)) + 1, name: '', categoryId: cfg.categories[0]?.id || '', price: 0, emoji: '☕', groups: [], active: true, soldOut: false, best: false };
+        const d = openDialog(`<form method="dialog" id="item-form" novalidate><div class="dlg-head"><h3>${isNew ? 'Tambah menu' : 'Ubah menu'}</h3><p>Perubahan langsung dipakai kasir saat halaman kasir dibuka ulang.</p></div>
+            <div class="dlg-body"><div class="form-grid">
+                <label class="field full"><span>Nama menu *</span><input class="input" name="name" maxlength="40" value="${esc(x.name)}" required></label>
+                <label class="field"><span>Kategori *</span><select class="select" name="categoryId">${cfg.categories.map((c) => `<option value="${esc(c.id)}" ${c.id === x.categoryId ? 'selected' : ''}>${esc(c.name)} (${esc(c.station)})</option>`).join('')}</select></label>
+                <label class="field"><span>Harga (Rp) *</span><input class="input" name="price" inputmode="numeric" value="${x.price || ''}" required></label>
+                <label class="field"><span>Ikon / emoji</span><input class="input" name="emoji" maxlength="4" value="${esc(x.emoji)}"><small>Nanti bisa diganti foto (JPG/PNG/WebP).</small></label>
+                <div class="field full"><span>Grup varian</span><div class="chips">${cfg.modifierGroups.map((g) => `<label class="chip" style="padding-right:10px"><input type="checkbox" name="groups" value="${esc(g.id)}" ${x.groups.includes(g.id) ? 'checked' : ''}> ${esc(g.name)}</label>`).join('')}</div><small>Atur pilihan & harga tambahan di Kategori & varian.</small></div>
+                <div class="toggle-row full"><span>Tandai terlaris</span><button type="button" class="switch" role="switch" data-f="best" aria-checked="${x.best}"></button></div>
+                <div class="toggle-row full"><span>Tersedia (tidak habis)</span><button type="button" class="switch" role="switch" data-f="available" aria-checked="${!x.soldOut}"></button></div>
+                <div class="toggle-row full"><span>Tampil di kasir</span><button type="button" class="switch" role="switch" data-f="active" aria-checked="${x.active}"></button></div>
+            </div><p class="errors" id="item-err"></p></div>
+            <div class="dlg-foot">${isNew ? '' : '<button class="btn btn-danger" type="button" id="del" style="margin-right:auto">Hapus</button>'}<button class="btn" type="button" data-close>Batal</button><button class="btn btn-primary" type="submit">Simpan</button></div></form>`);
+        $$('[data-f]', d).forEach((b) => b.addEventListener('click', () => b.setAttribute('aria-checked', String(b.getAttribute('aria-checked') !== 'true'))));
+        $('#item-form', d).addEventListener('submit', (e) => {
+            e.preventDefault();
+            const f = e.target;
+            const name = f.name.value.trim();
+            const price = Number(String(f.price.value).replace(/\D/g, ''));
+            const errs = [];
+            if (!name) errs.push('Nama menu wajib diisi.');
+            if (cfg.items.some((i) => i.id !== x.id && i.name.toLowerCase() === name.toLowerCase())) errs.push('Nama menu sudah dipakai.');
+            if (!price) errs.push('Harga wajib diisi (angka).');
+            if (errs.length) { $('#item-err', d).innerHTML = errs.map(esc).join('<br>'); return; }
+            const sw = (k) => $(`[data-f="${k}"]`, d).getAttribute('aria-checked') === 'true';
+            Object.assign(x, { name, price, categoryId: f.categoryId.value, emoji: f.emoji.value.trim(), groups: $$('[name="groups"]:checked', d).map((c) => c.value), best: sw('best'), soldOut: !sw('available'), active: sw('active') });
+            if (isNew) cfg.items.push(x); else cfg.items[cfg.items.findIndex((i) => i.id === x.id)] = x;
+            saveCfg();
+            d.close();
+            toast(isNew ? 'Menu ditambahkan' : 'Menu disimpan');
+            render();
+        });
+        $('#del', d)?.addEventListener('click', async () => {
+            d.close();
+            if (!(await confirmBox('Hapus menu?', `${x.name} dihapus dari kasir. Riwayat transaksi tetap tersimpan. Bila hanya sementara, matikan "Tampil di kasir" saja.`, 'Hapus', true))) return;
+            cfg.items = cfg.items.filter((i) => i.id !== x.id);
+            saveCfg();
+            toast('Menu dihapus');
+            render();
+        });
+    }
+
+    /* ---------- editor generik: daftar teks, tabel baris, sakelar ---------- */
+    const getPath = (o, p) => p.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
+    const setPath = (o, p, v) => { const ks = p.split('.'); const last = ks.pop(); ks.reduce((a, k) => a[k], o)[last] = v; };
+    /* form(): blok pengaturan dengan draf + tombol Simpan; field: [jenis, label, path, opsi]. */
+    function settingsForm(el, { title, desc, fields, validate, after }) {
+        const draft = clone(cfg);
+        const fieldHtml = (f, i) => {
+            const [type, label, path, o = {}] = f;
+            const v = getPath(draft, path);
+            const id = 'f' + i;
+            const help = o.help ? `<small>${o.help}</small>` : '';
+            const full = o.full ? ' full' : '';
+            if (type === 'text' || type === 'number' || type === 'time') return `<label class="field${full}"><span>${label}</span><input class="input" id="${id}" data-path="${path}" data-type="${type}" ${type === 'number' ? 'inputmode="numeric"' : ''} ${type === 'time' ? 'type="time"' : ''} value="${esc(v)}">${help}</label>`;
+            if (type === 'toggle') return `<div class="toggle-row full"><span>${label}${o.help ? `<small>${o.help}</small>` : ''}</span><button type="button" class="switch" role="switch" data-path="${path}" data-type="toggle" aria-checked="${!!v}" aria-label="${esc(label)}"></button></div>`;
+            if (type === 'select') return `<label class="field${full}"><span>${label}</span><select class="select" data-path="${path}" data-type="select">${o.options.map(([ov, ol]) => `<option value="${esc(ov)}" ${String(v) === String(ov) ? 'selected' : ''}>${esc(ol)}</option>`).join('')}</select>${help}</label>`;
+            if (type === 'chips') return `<div class="field full"><span>${label}</span><div class="chips" data-chips="${path}" data-num="${o.number ? 1 : ''}">${(v || []).map((c, ci) => `<span class="chip">${esc(o.number ? money(c) : c)}<button type="button" data-rm="${ci}" aria-label="Hapus ${esc(c)}">${icon('x')}</button></span>`).join('')}
+                <span class="chip-add"><input class="input" placeholder="${o.placeholder || 'Tambah…'}" ${o.number ? 'inputmode="numeric"' : ''}><button type="button" class="btn" data-add>${icon('plus')}</button></span></div>${help}</div>`;
+            if (type === 'rows') return `<div class="field full rows"><span>${label}</span><div class="table-wrap"><table><thead><tr>${o.cols.map((c) => `<th>${c[1]}</th>`).join('')}<th></th></tr></thead><tbody>
+                ${(v || []).map((row, ri) => `<tr>${o.cols.map(([k, , t, opts]) => `<td>${t === 'toggle' ? `<button type="button" class="switch" role="switch" data-row="${path}" data-ri="${ri}" data-k="${k}" data-type="toggle" aria-checked="${!!row[k]}" aria-label="${esc(k)}"></button>` : t === 'select' ? `<select class="select" data-row="${path}" data-ri="${ri}" data-k="${k}">${opts.map(([ov, ol]) => `<option value="${esc(ov)}" ${row[k] === ov ? 'selected' : ''}>${esc(ol)}</option>`).join('')}</select>` : `<input class="input" data-row="${path}" data-ri="${ri}" data-k="${k}" data-type="${t}" ${t === 'time' ? 'type="time"' : ''} ${t === 'number' ? 'inputmode="numeric"' : ''} value="${esc(row[k])}">`}</td>`).join('')}
+                    <td class="ctl"><button type="button" class="icon-btn btn-ghost" data-rm-row="${path}" data-ri="${ri}" aria-label="Hapus baris">${icon('x')}</button></td></tr>`).join('')}
+                </tbody></table></div><div><button type="button" class="btn" data-add-row="${path}">${icon('plus')}${o.addLabel || 'Tambah baris'}</button></div>${help}</div>`;
+            if (type === 'html') return `<div class="${o.full ? 'full' : ''}">${o.html}</div>`;
+            return '';
+        };
+        const rowsOpts = Object.fromEntries(fields.filter((f) => f[0] === 'rows').map((f) => [f[2], f[3]]));
+        const paint = (dirty) => {
+            el.innerHTML = `<div class="card"><div class="card-head"><div><h3>${title}</h3>${desc ? `<p>${desc}</p>` : ''}</div></div>
+                <div class="card-body"><div class="form-grid">${fields.map(fieldHtml).join('')}</div><p class="errors" id="errs"></p></div>
+                <div class="save-bar"><span>${dirty ? 'Ada perubahan yang belum disimpan' : 'Semua perubahan tersimpan'}</span><button type="button" class="btn" id="reset" ${dirty ? '' : 'disabled'}>Batalkan</button><button type="button" class="btn btn-primary" id="save" ${dirty ? '' : 'disabled'}>Simpan</button></div></div>`;
+            after && after(el, draft, () => paint(true));
+        };
+        const markDirty = () => { const bar = $('.save-bar', el); bar.firstElementChild.textContent = 'Ada perubahan yang belum disimpan'; $('#save', el).disabled = false; $('#reset', el).disabled = false; };
+        const castVal = (t, v) => (t === 'number' ? Number(String(v).replace(/[^\d.,-]/g, '').replace(',', '.')) || 0 : v);
+        el.oninput = (e) => {
+            const t = e.target;
+            if (t.dataset.path) { setPath(draft, t.dataset.path, castVal(t.dataset.type, t.value)); markDirty(); }
+            if (t.dataset.row) { getPath(draft, t.dataset.row)[t.dataset.ri][t.dataset.k] = castVal(t.dataset.type, t.value); markDirty(); }
+        };
+        el.onchange = el.oninput;
+        el.onclick = (e) => {
+            const b = e.target.closest('button');
+            if (!b) return;
+            if (b.dataset.type === 'toggle' && b.dataset.path) { setPath(draft, b.dataset.path, b.getAttribute('aria-checked') !== 'true'); b.setAttribute('aria-checked', String(getPath(draft, b.dataset.path))); markDirty(); }
+            else if (b.dataset.type === 'toggle' && b.dataset.row) { const row = getPath(draft, b.dataset.row)[b.dataset.ri]; row[b.dataset.k] = !row[b.dataset.k]; b.setAttribute('aria-checked', String(row[b.dataset.k])); markDirty(); }
+            else if (b.dataset.rm !== undefined) { const box = b.closest('[data-chips]'); getPath(draft, box.dataset.chips).splice(Number(b.dataset.rm), 1); paint(true); }
+            else if (b.hasAttribute('data-add')) {
+                const box = b.closest('[data-chips]'); const inp = $('input', box); const raw = inp.value.trim(); if (!raw) return;
+                const v = box.dataset.num ? Number(raw.replace(/\D/g, '')) : raw;
+                const arr = getPath(draft, box.dataset.chips);
+                if (!v || arr.includes(v)) { toast(v ? 'Sudah ada di daftar' : 'Isi dulu'); return; }
+                arr.push(v); if (box.dataset.num) arr.sort((a, c) => c - a); paint(true);
+            } else if (b.dataset.rmRow) { getPath(draft, b.dataset.rmRow).splice(Number(b.dataset.ri), 1); paint(true); }
+            else if (b.dataset.addRow) { const o = rowsOpts[b.dataset.addRow]; getPath(draft, b.dataset.addRow).push(o.blank()); paint(true); }
+            else if (b.id === 'reset') { settingsForm(el, { title, desc, fields, validate, after }); }
+            else if (b.id === 'save') {
+                const errs = validate ? validate(draft) : [];
+                if (errs.length) { $('#errs', el).innerHTML = errs.map(esc).join('<br>'); return; }
+                cfg = draft; saveCfg(); toast('Pengaturan disimpan'); render();
+            }
+        };
+        el.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.closest('.chip-add')) { e.preventDefault(); $('[data-add]', e.target.closest('.chip-add')).click(); } });
+        paint(false);
+    }
+    const nonEmpty = (arr, label) => (arr.length ? [] : [`${label}: minimal satu.`]);
+    const uniqueBy = (arr, k, label) => { const seen = new Set(); const dup = arr.find((x) => { const v = String(x[k]).trim().toLowerCase(); if (seen.has(v)) return true; seen.add(v); return false; }); return dup ? [`${label} "${dup[k]}" dobel.`] : []; };
+    const blanks = (arr, k, label) => (arr.some((x) => !String(x[k] ?? '').trim()) ? [`${label} tidak boleh kosong.`] : []);
+
+    /* ---------- kategori & varian ---------- */
+    PAGES.varian = (el) => {
+        el.innerHTML = `<div class="page-head"><div><h1>Kategori & varian</h1><p>Kategori menentukan stasiun cetak (bar/dapur). Varian dipilih kasir sebelum item masuk pesanan.</p></div></div><div id="cat-form"></div><div id="grp-form"></div>`;
+        settingsForm($('#cat-form', el), {
+            title: 'Kategori menu', desc: 'Urutan di sini = urutan tab di kasir.',
+            fields: [['rows', 'Kategori', 'categories', { addLabel: 'Tambah kategori', cols: [['name', 'Nama', 'text'], ['station', 'Stasiun', 'select', [['Bar', 'Bar'], ['Dapur', 'Dapur']]]], blank: () => ({ id: 'k' + Date.now(), name: '', station: 'Bar' }) }]],
+            validate: (dr) => { dr.categories.forEach((c) => { if (!c.id) c.id = slug(c.name); }); const used = dr.categories.map((c) => c.id); const orphan = dr.items.filter((i) => !used.includes(i.categoryId)); return [...nonEmpty(dr.categories, 'Kategori'), ...blanks(dr.categories, 'name', 'Nama kategori'), ...uniqueBy(dr.categories, 'name', 'Kategori'), ...(orphan.length ? [`Kategori masih dipakai ${orphan.length} menu (mis. ${orphan[0].name}). Pindahkan menunya dulu.`] : [])]; },
+        });
+        const grp = $('#grp-form', el);
+        const paintGroups = () => {
+            grp.innerHTML = `<div class="card"><div class="card-head"><div><h3>Grup varian</h3><p>Pilihan pertama = bawaan. "Selalu cetak": pilihan bawaan tetap ditulis di tiket (mis. Es/Panas).</p></div><button class="btn" type="button" id="add-grp">${icon('plus')}Tambah grup</button></div>
+                <div class="card-body">${cfg.modifierGroups.map((g, gi) => `<div class="group-card" data-gi="${gi}">
+                    <div class="head"><input class="input" data-g="name" value="${esc(g.name)}" aria-label="Nama grup"><span class="toggle-row" style="gap:8px"><small>Selalu cetak</small><button type="button" class="switch" role="switch" data-g="printAlways" aria-checked="${!!g.printAlways}" aria-label="Selalu cetak"></button></span>
+                        <span class="badge muted">${cfg.items.filter((i) => i.groups.includes(g.id)).length} menu</span><button type="button" class="icon-btn btn-ghost" data-del-grp aria-label="Hapus grup">${icon('x')}</button></div>
+                    <div class="rows"><div class="table-wrap"><table><thead><tr><th>Pilihan</th><th>Tambahan harga (Rp)</th><th></th></tr></thead><tbody>${g.options.map((o, oi) => `<tr><td><input class="input" data-o="name" data-oi="${oi}" value="${esc(o.name)}"></td><td><input class="input" data-o="price" data-oi="${oi}" inputmode="numeric" value="${o.price}"></td><td class="ctl"><button type="button" class="icon-btn btn-ghost" data-del-opt="${oi}" aria-label="Hapus pilihan">${icon('x')}</button></td></tr>`).join('')}</tbody></table></div>
+                    <div><button type="button" class="btn" data-add-opt>${icon('plus')}Tambah pilihan</button></div></div></div>`).join('')}</div>
+                <div class="save-bar"><span>Perubahan varian disimpan otomatis</span></div></div>`;
+        };
+        paintGroups();
+        const commit = (repaint) => { saveCfg(); if (repaint) paintGroups(); };
+        grp.addEventListener('change', (e) => {
+            const card = e.target.closest('[data-gi]'); if (!card) return;
+            const g = cfg.modifierGroups[card.dataset.gi];
+            if (e.target.dataset.g === 'name') { if (!e.target.value.trim()) { toast('Nama grup wajib'); e.target.value = g.name; return; } g.name = e.target.value.trim(); }
+            if (e.target.dataset.o) { const o = g.options[e.target.dataset.oi]; if (e.target.dataset.o === 'price') o.price = Number(e.target.value.replace(/\D/g, '')) || 0; else { if (!e.target.value.trim()) { toast('Nama pilihan wajib'); e.target.value = o.name; return; } o.name = e.target.value.trim(); } }
+            commit(false); toast('Varian disimpan');
+        });
+        grp.addEventListener('click', async (e) => {
+            const b = e.target.closest('button'); if (!b) return;
+            if (b.id === 'add-grp') { cfg.modifierGroups.push({ id: 'g' + Date.now(), name: 'Grup baru', printAlways: false, options: [{ name: 'Pilihan 1', price: 0 }] }); commit(true); return; }
+            const card = b.closest('[data-gi]'); if (!card) return;
+            const g = cfg.modifierGroups[card.dataset.gi];
+            if (b.dataset.g === 'printAlways') { g.printAlways = !g.printAlways; commit(true); }
+            if (b.hasAttribute('data-add-opt')) { g.options.push({ name: 'Pilihan ' + (g.options.length + 1), price: 0 }); commit(true); }
+            if (b.dataset.delOpt !== undefined) { if (g.options.length <= 1) { toast('Minimal satu pilihan'); return; } g.options.splice(Number(b.dataset.delOpt), 1); commit(true); }
+            if (b.hasAttribute('data-del-grp')) {
+                const n = cfg.items.filter((i) => i.groups.includes(g.id)).length;
+                if (!(await confirmBox('Hapus grup varian?', `${g.name}${n ? ` dilepas dari ${n} menu.` : '.'}`, 'Hapus', true))) return;
+                cfg.items.forEach((i) => { i.groups = i.groups.filter((x) => x !== g.id); });
+                cfg.modifierGroups.splice(Number(card.dataset.gi), 1); commit(true);
+            }
+        });
+    };
+
+    /* ---------- pelanggan ---------- */
+    const cState = { q: '' };
+    PAGES.pelanggan = (el) => {
+        const all = Bangku.customers.all();
+        const q = cState.q.trim().toLowerCase();
+        const list = all.filter((c) => !q || c.name.toLowerCase().includes(q) || Bangku.normPhone(c.phone).includes(Bangku.normPhone(q))).sort((a, b) => (b.lastVisit || '').localeCompare(a.lastVisit || ''));
+        el.innerHTML = `
+            <div class="page-head"><div><h1>Pelanggan</h1><p>${all.length} pelanggan · ${all.filter((c) => c.consent).length} setuju dihubungi${cfg.customers.loyaltyEnabled ? ' · poin aktif' : ''}</p></div>
+                <div class="actions"><button class="btn" type="button" id="csv">Unduh CSV</button><button class="btn btn-primary" type="button" id="add">${icon('plus')}Tambah pelanggan</button></div></div>
+            ${cfg.customers.enabled ? '' : '<p class="note">Database pelanggan sedang dimatikan di kasir (Pengaturan › Pelanggan).</p>'}
+            <div class="toolbar"><input class="input" id="c-q" type="search" placeholder="Cari nama atau no. HP…" value="${esc(cState.q)}"></div>
+            ${list.length ? `<div class="table-wrap"><table><thead><tr><th>Nama</th><th>No. HP</th><th class="num">Kunjungan</th><th class="num">Belanja</th>${cfg.customers.loyaltyEnabled ? '<th class="num">Poin</th>' : ''}<th>Terakhir</th><th>Dihubungi</th></tr></thead><tbody>
+                ${list.map((c) => `<tr data-open="${esc(c.id)}"><td>${esc(c.name)}${c.notes ? `<span class="sub">${esc(c.notes)}</span>` : ''}</td><td class="mono">${esc(c.phone || '–')}</td><td class="num">${c.visits}</td><td class="num">${rp(c.spent)}</td>${cfg.customers.loyaltyEnabled ? `<td class="num">${c.points}</td>` : ''}<td>${fmtDate(c.lastVisit)}</td><td>${c.consent ? '<span class="badge ok">ya</span>' : '<span class="badge muted">tidak</span>'}</td></tr>`).join('')}
+            </tbody></table></div>` : emptyState(all.length ? 'Tidak ditemukan.' : 'Belum ada pelanggan. Kasir bisa menyimpan pelanggan dari kolom nama, atau tambah di sini.', all.length ? '' : seedButton())}`;
+        $('#c-q').addEventListener('input', (e) => { cState.q = e.target.value; clearTimeout(PAGES.cq); PAGES.cq = setTimeout(() => { render(); const i = $('#c-q'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }, 250); });
+        $('#add').addEventListener('click', () => editCustomer(null));
+        $('#csv').addEventListener('click', () => downloadCsv('pelanggan.csv', [['Nama', 'No HP', 'Kunjungan', 'Belanja', 'Poin', 'Terakhir', 'Setuju dihubungi', 'Catatan'], ...all.map((c) => [c.name, c.phone, c.visits, c.spent, c.points, c.lastVisit, c.consent ? 'ya' : 'tidak', c.notes])]));
+        $$('tr[data-open]', el).forEach((tr) => tr.addEventListener('click', () => editCustomer(all.find((c) => c.id === tr.dataset.open))));
+    };
+    function editCustomer(c) {
+        const isNew = !c;
+        const x = c ? clone(c) : { name: '', phone: '', notes: '', consent: false };
+        const history = c ? sales().filter((s) => s.customerId === c.id).sort((a, b) => b.paidAt.localeCompare(a.paidAt)).slice(0, 8) : [];
+        const d = openDialog(`<form method="dialog" id="cust-form" novalidate><div class="dlg-head"><h3>${isNew ? 'Tambah pelanggan' : esc(c.name)}</h3><p>${isNew ? 'Data pribadi: simpan seperlunya dan hanya dengan persetujuan.' : `${c.visits} kunjungan · ${rp(c.spent)} · sejak ${fmtDate(c.createdAt, { month: 'long', year: 'numeric' })}`}</p></div>
+            <div class="dlg-body"><div class="form-grid">
+                <label class="field"><span>Nama *</span><input class="input" name="name" maxlength="24" value="${esc(x.name)}"></label>
+                <label class="field"><span>No. HP</span><input class="input" name="phone" maxlength="16" inputmode="tel" value="${esc(x.phone)}"></label>
+                <label class="field full"><span>Catatan (alergi, preferensi)</span><input class="input" name="notes" maxlength="60" value="${esc(x.notes)}"></label>
+                <div class="toggle-row full"><span>Setuju dihubungi untuk info & promo</span><button type="button" class="switch" role="switch" id="consent" aria-checked="${!!x.consent}"></button></div>
+            </div><p class="errors" id="cust-err"></p>
+            ${history.length ? `<div class="table-wrap"><table><thead><tr><th>Riwayat</th><th class="num">Total</th></tr></thead><tbody>${history.map((s) => `<tr><td>${fmtDate(s.paidAt)} · ${esc(s.lines.map((l) => l.qty + '× ' + l.name).join(', '))}</td><td class="num">${rp(s.total)}</td></tr>`).join('')}</tbody></table></div>` : ''}</div>
+            <div class="dlg-foot">${isNew ? '' : '<button class="btn btn-danger" type="button" id="del" style="margin-right:auto">Hapus data</button>'}<button class="btn" type="button" data-close>Batal</button><button class="btn btn-primary" type="submit">Simpan</button></div></form>`);
+        $('#consent', d).addEventListener('click', (e) => e.currentTarget.setAttribute('aria-checked', String(e.currentTarget.getAttribute('aria-checked') !== 'true')));
+        $('#cust-form', d).addEventListener('submit', (e) => {
+            e.preventDefault();
+            const f = e.target;
+            const name = f.name.value.trim();
+            const phone = Bangku.normPhone(f.phone.value);
+            const errs = [];
+            if (!name) errs.push('Nama wajib diisi.');
+            if (phone && !/^0\d{8,13}$/.test(phone)) errs.push('No. HP tidak valid (contoh 081234567890).');
+            if (phone && Bangku.customers.all().some((y) => y.id !== x.id && Bangku.normPhone(y.phone) === phone)) errs.push('No. HP sudah dipakai pelanggan lain.');
+            if (errs.length) { $('#cust-err', d).innerHTML = errs.map(esc).join('<br>'); return; }
+            Bangku.customers.upsert({ ...x, name, phone, notes: f.notes.value.trim(), consent: $('#consent', d).getAttribute('aria-checked') === 'true' });
+            d.close(); toast('Pelanggan disimpan'); render();
+        });
+        $('#del', d)?.addEventListener('click', async () => {
+            d.close();
+            if (!(await confirmBox('Hapus data pelanggan?', `Nama & no. HP ${x.name} dihapus (mis. atas permintaan pelanggan). Transaksi tetap ada tanpa data pribadi.`, 'Hapus', true))) return;
+            Bangku.customers.save(Bangku.customers.all().filter((y) => y.id !== x.id));
+            const list = sales(); list.forEach((s) => { if (s.customerId === x.id) { s.customerId = null; s.name = ''; } }); data.set('sales', list);
+            toast('Data pelanggan dihapus'); render();
+        });
+    }
+
+    /* ---------- karyawan & peran ---------- */
+    PAGES.karyawan = (el) => {
+        const pl = Number(cfg.policy.pinLength) || 4;
+        el.innerHTML = `
+            <div class="page-head"><div><h1>Karyawan & peran</h1><p>Kasir masuk tablet dengan PIN ${pl} digit; owner/kepala toko masuk panel dengan email & kata sandi.</p></div>
+                <div class="actions"><button class="btn btn-primary" type="button" id="add">${icon('plus')}Tambah karyawan</button></div></div>
+            <div class="table-wrap"><table><thead><tr><th>Nama</th><th>Peran</th><th>PIN kasir</th><th>Email panel</th><th>Status</th></tr></thead><tbody>
+                ${cfg.staff.map((s) => `<tr data-open="${esc(s.id)}"><td>${esc(s.name)}</td><td>${esc(Bangku.roleOf(cfg, s).name)}</td><td>${Bangku.can(cfg, s, 'pos') ? '<span class="mono">' + '•'.repeat(String(s.pin).length) + '</span>' : '<span class="badge muted">tanpa akses kasir</span>'}</td><td>${Bangku.can(cfg, s, 'admin') ? esc(s.email || '–') : '<span class="badge muted">tanpa akses panel</span>'}</td><td>${s.active ? '<span class="badge ok">aktif</span>' : '<span class="badge muted">nonaktif</span>'}</td></tr>`).join('')}
+            </tbody></table></div>
+            <div id="roles-form"></div>`;
+        $('#add').addEventListener('click', () => editStaff(null));
+        $$('tr[data-open]', el).forEach((tr) => tr.addEventListener('click', () => editStaff(cfg.staff.find((s) => s.id === tr.dataset.open))));
+        // Matriks hak akses per peran
+        const box = $('#roles-form', el);
+        const paintRoles = () => {
+            box.innerHTML = `<div class="card"><div class="card-head"><div><h3>Peran & hak akses</h3><p>Centang hak tiap peran. Hak "Menyetujui" = PIN-nya diterima untuk selisih kas, kas keluar besar, diskon besar, dan refund.</p></div><button class="btn" type="button" id="add-role">${icon('plus')}Tambah peran</button></div>
+                <div class="card-body"><div class="table-wrap"><table class="matrix"><thead><tr><th>Hak</th>${cfg.roles.map((r, ri) => `<th><input class="input" data-role-name="${ri}" value="${esc(r.name)}" style="min-width:110px" aria-label="Nama peran"></th>`).join('')}</tr></thead><tbody>
+                    ${Bangku.PERMISSIONS.map((p) => `<tr><td class="wrap">${esc(p.label)}</td>${cfg.roles.map((r, ri) => `<td><input type="checkbox" data-ri="${ri}" data-perm="${p.id}" ${r.perms.includes(p.id) ? 'checked' : ''} aria-label="${esc(r.name)}: ${esc(p.label)}"></td>`).join('')}</tr>`).join('')}
+                    <tr><td>Jumlah karyawan</td>${cfg.roles.map((r, ri) => `<td>${cfg.staff.filter((s) => s.roleId === r.id).length}${cfg.staff.some((s) => s.roleId === r.id) ? '' : ` <button type="button" class="btn btn-ghost btn-danger" data-del-role="${ri}">Hapus</button>`}</td>`).join('')}</tr>
+                </tbody></table></div><p class="errors" id="role-err"></p></div></div>`;
+        };
+        paintRoles();
+        const ownerOk = (roles) => cfg.staff.some((s) => s.active && (roles.find((r) => r.id === s.roleId) || { perms: [] }).perms.includes('staff') && (roles.find((r) => r.id === s.roleId) || { perms: [] }).perms.includes('admin'));
+        box.addEventListener('change', (e) => {
+            const t = e.target;
+            const next = clone(cfg.roles);
+            if (t.dataset.perm) { const r = next[t.dataset.ri]; r.perms = t.checked ? [...new Set([...r.perms, t.dataset.perm])] : r.perms.filter((x) => x !== t.dataset.perm); }
+            if (t.dataset.roleName !== undefined) { if (!t.value.trim()) { paintRoles(); return; } next[t.dataset.roleName].name = t.value.trim(); }
+            if (!ownerOk(next)) { $('#role-err', box).textContent = 'Minimal satu karyawan aktif harus tetap bisa masuk panel & mengelola karyawan.'; paintRoles(); $('#role-err', box).textContent = 'Minimal satu karyawan aktif harus tetap bisa masuk panel & mengelola karyawan.'; return; }
+            cfg.roles = next; saveCfg(); toast('Hak akses disimpan');
+            if (t.dataset.perm) render();
+        });
+        box.addEventListener('click', async (e) => {
+            const b = e.target.closest('button'); if (!b) return;
+            if (b.id === 'add-role') { cfg.roles.push({ id: 'r' + Date.now(), name: 'Peran baru', perms: ['pos'] }); saveCfg(); paintRoles(); }
+            if (b.dataset.delRole !== undefined) { const r = cfg.roles[b.dataset.delRole]; if (!(await confirmBox('Hapus peran?', r.name, 'Hapus', true))) return; cfg.roles.splice(Number(b.dataset.delRole), 1); saveCfg(); paintRoles(); }
+        });
+    };
+    function editStaff(s) {
+        const isNew = !s;
+        const pl = Number(cfg.policy.pinLength) || 4;
+        const x = s ? clone(s) : { id: 'u' + Date.now(), name: '', roleId: cfg.roles.find((r) => r.id === 'cashier')?.id || cfg.roles[0].id, pin: '', email: '', password: '', active: true };
+        const d = openDialog(`<form method="dialog" id="staff-form" novalidate><div class="dlg-head"><h3>${isNew ? 'Tambah karyawan' : 'Ubah ' + esc(x.name)}</h3><p>PIN & kata sandi di aplikasi nanti disimpan ter-hash; owner hanya bisa mengganti, tidak bisa melihat.</p></div>
+            <div class="dlg-body"><div class="form-grid">
+                <label class="field"><span>Nama *</span><input class="input" name="name" maxlength="24" value="${esc(x.name)}"></label>
+                <label class="field"><span>Peran *</span><select class="select" name="roleId">${cfg.roles.map((r) => `<option value="${esc(r.id)}" ${r.id === x.roleId ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select></label>
+                <label class="field"><span>PIN kasir (${pl} digit)</span><input class="input" name="pin" inputmode="numeric" maxlength="${pl}" value="${esc(x.pin)}" placeholder="${'•'.repeat(pl)}"><small>Wajib bila peran punya akses kasir. Tidak boleh sama dengan karyawan lain.</small></label>
+                <span class="field"><span>&nbsp;</span><button type="button" class="btn" id="gen-pin">Buat PIN acak</button></span>
+                <label class="field"><span>Email panel</span><input class="input" name="email" type="email" value="${esc(x.email)}"><small>Wajib bila peran punya akses panel.</small></label>
+                <label class="field"><span>${isNew ? 'Kata sandi' : 'Kata sandi baru'}</span><input class="input" name="password" type="password" autocomplete="new-password" placeholder="${isNew ? 'min. 12 karakter' : 'kosongkan bila tidak diganti'}"></label>
+                <div class="toggle-row full"><span>Aktif<small>Nonaktif = tidak bisa masuk kasir & panel; riwayat tetap ada.</small></span><button type="button" class="switch" role="switch" id="active" aria-checked="${x.active}"></button></div>
+            </div><p class="errors" id="staff-err"></p></div>
+            <div class="dlg-foot">${isNew ? '' : '<button class="btn btn-danger" type="button" id="del" style="margin-right:auto">Hapus</button>'}<button class="btn" type="button" data-close>Batal</button><button class="btn btn-primary" type="submit">Simpan</button></div></form>`);
+        $('#active', d).addEventListener('click', (e) => e.currentTarget.setAttribute('aria-checked', String(e.currentTarget.getAttribute('aria-checked') !== 'true')));
+        $('#gen-pin', d).addEventListener('click', () => { let p; do { p = String(Math.floor(Math.random() * 10 ** pl)).padStart(pl, '0'); } while (cfg.staff.some((y) => y.pin === p)); $('[name="pin"]', d).value = p; toast('PIN baru: ' + p + ' — berikan langsung ke karyawan'); });
+        $('#staff-form', d).addEventListener('submit', (e) => {
+            e.preventDefault();
+            const f = e.target;
+            const next = { ...x, name: f.name.value.trim(), roleId: f.roleId.value, pin: f.pin.value.trim(), email: f.email.value.trim().toLowerCase(), active: $('#active', d).getAttribute('aria-checked') === 'true' };
+            if (f.password.value) next.password = f.password.value;
+            const role = cfg.roles.find((r) => r.id === next.roleId);
+            const errs = [];
+            if (!next.name) errs.push('Nama wajib diisi.');
+            if (role.perms.includes('pos')) {
+                if (!new RegExp(`^\\d{${pl}}$`).test(next.pin)) errs.push(`PIN harus ${pl} angka.`);
+                if (cfg.staff.some((y) => y.id !== x.id && y.pin === next.pin)) errs.push('PIN sudah dipakai karyawan lain.');
+            }
+            if (role.perms.includes('admin')) {
+                if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(next.email)) errs.push('Email panel wajib & harus valid.');
+                if (cfg.staff.some((y) => y.id !== x.id && y.email && y.email === next.email)) errs.push('Email sudah dipakai.');
+                if (!next.password) errs.push('Kata sandi wajib untuk akses panel.');
+                else if (f.password.value && f.password.value.length < 12) errs.push('Kata sandi minimal 12 karakter.');
+            }
+            const staffNext = isNew ? cfg.staff.concat([next]) : cfg.staff.map((y) => (y.id === x.id ? next : y));
+            if (!staffNext.some((y) => y.active && Bangku.can({ ...cfg, staff: staffNext }, y, 'staff') && Bangku.can({ ...cfg, staff: staffNext }, y, 'admin'))) errs.push('Minimal satu karyawan aktif harus bisa masuk panel & mengelola karyawan.');
+            if (errs.length) { $('#staff-err', d).innerHTML = errs.map(esc).join('<br>'); return; }
+            cfg.staff = staffNext; saveCfg(); d.close(); toast('Karyawan disimpan'); render();
+        });
+        $('#del', d)?.addEventListener('click', async () => {
+            d.close();
+            const rest = cfg.staff.filter((y) => y.id !== x.id);
+            if (!rest.some((y) => y.active && Bangku.can({ ...cfg, staff: rest }, y, 'staff'))) { toast('Tidak bisa: tidak ada lagi yang bisa mengelola karyawan'); return; }
+            if (!(await confirmBox('Hapus karyawan?', `${x.name}. Sebaiknya nonaktifkan saja supaya nama tetap tercatat di riwayat.`, 'Hapus', true))) return;
+            cfg.staff = rest; saveCfg(); toast('Karyawan dihapus'); render();
+        });
+    }
+
+    /* ---------- pengaturan ---------- */
+    const SETTINGS = [
+        { id: 'toko', label: 'Toko & struk' },
+        { id: 'pajak', label: 'Pajak & service' },
+        { id: 'pesanan', label: 'Jenis pesanan' },
+        { id: 'bayar', label: 'Pembayaran' },
+        { id: 'shift', label: 'Shift & kas' },
+        { id: 'aturan', label: 'Aturan & keamanan' },
+        { id: 'pelanggan', label: 'Pelanggan' },
+        { id: 'perangkat', label: 'Perangkat' },
+        { id: 'data', label: 'Data' },
+    ];
+    PAGES.pengaturan = (el, sub) => {
+        const cur = SETTINGS.find((s) => s.id === sub) || SETTINGS[0];
+        el.innerHTML = `<div class="page-head"><div><h1>Pengaturan</h1><p>Berlaku untuk semua tablet kasir. Kasir memuat ulang pengaturan saat dibuka atau setelah dikunci.</p></div></div>
+            <div class="tabs" role="tablist">${SETTINGS.map((s) => `<button type="button" data-tab="${s.id}" aria-pressed="${s.id === cur.id}">${s.label}</button>`).join('')}</div><div id="set-body"></div>`;
+        $$('[data-tab]', el).forEach((b) => b.addEventListener('click', () => go('#/pengaturan/' + b.dataset.tab)));
+        SETTING_FORMS[cur.id]($('#set-body', el));
+    };
+    const money0 = (label, path, help) => ['number', label, path, { help }];
+    const SETTING_FORMS = {
+        toko: (el) => settingsForm(el, {
+            title: 'Toko & struk', desc: 'Dicetak di kepala & kaki struk 57 mm.',
+            fields: [['text', 'Nama toko *', 'store.name'], ['text', 'Telepon', 'store.phone'], ['text', 'Alamat', 'store.address', { full: true }], ['text', 'Catatan kaki struk', 'store.footer', { full: true }],
+                ['number', 'Karakter per baris', 'printing.cols', { help: 'Kertas 57/58 mm = 32; 80 mm = 48.' }], ['html', '', '', { html: '' }],
+                ['toggle', 'Cetak tiket bar/dapur', 'printing.ticket', { help: 'Tiket berisi nomor antrean, nama besar, item & varian.' }],
+                ['toggle', 'Struk pelanggan dicetak otomatis', 'printing.receiptDefault', { help: 'Kasir tetap bisa mematikan per transaksi.' }]],
+            validate: (d) => [...(d.store.name.trim() ? [] : ['Nama toko wajib.']), ...(d.printing.cols >= 24 && d.printing.cols <= 48 ? [] : ['Karakter per baris 24–48.'])],
+        }),
+        pajak: (el) => settingsForm(el, {
+            title: 'Pajak & service charge', desc: 'Urutan umum restoran: service dihitung dari subtotal − diskon; PB1 dari subtotal − diskon + service. Service hanya untuk jenis pesanan yang dicentang di "Jenis pesanan".',
+            fields: [['toggle', 'Kenakan service charge', 'charges.serviceEnabled'], ['number', 'Service (%)', 'charges.serviceRate'], ['text', 'Label di struk', 'charges.serviceLabel'], ['html', '', '', { html: '' }],
+                ['toggle', 'Kenakan pajak restoran (PB1)', 'charges.taxEnabled', { help: 'Isi sesuai perda setempat & status pajak usaha (umumnya 10%).' }], ['number', 'Pajak (%)', 'charges.taxRate'], ['text', 'Label di struk', 'charges.taxLabel']],
+            validate: (d) => [...(d.charges.serviceRate >= 0 && d.charges.serviceRate <= 30 ? [] : ['Service 0–30%.']), ...(d.charges.taxRate >= 0 && d.charges.taxRate <= 30 ? [] : ['Pajak 0–30%.']), ...(d.charges.serviceLabel.trim() && d.charges.taxLabel.trim() ? [] : ['Label wajib diisi.'])],
+        }),
+        pesanan: (el) => settingsForm(el, {
+            title: 'Jenis pesanan', desc: 'Tampil sebagai pilihan di kasir. "Nomor meja" membuka keypad meja; "Service" mengenakan service charge.',
+            fields: [['rows', 'Jenis', 'orderTypes', { addLabel: 'Tambah jenis', cols: [['label', 'Nama', 'text'], ['active', 'Aktif', 'toggle'], ['needsTable', 'Nomor meja', 'toggle'], ['service', 'Service', 'toggle']], blank: () => ({ id: 't' + Date.now(), label: '', active: true, needsTable: false, service: false }) }]],
+            validate: (d) => [...blanks(d.orderTypes, 'label', 'Nama jenis'), ...uniqueBy(d.orderTypes, 'label', 'Jenis'), ...(d.orderTypes.some((t) => t.active) ? [] : ['Minimal satu jenis aktif.'])],
+        }),
+        bayar: (el) => settingsForm(el, {
+            title: 'Metode pembayaran', desc: '"Laci (tunai)" = ada kembalian & dihitung saat tutup shift. "EDC" = dicocokkan dengan settlement mesin EDC sekali sehari.',
+            fields: [['rows', 'Metode', 'payments', { addLabel: 'Tambah metode', cols: [['label', 'Nama', 'text'], ['kind', 'Jenis', 'select', [['cash', 'Laci (tunai)'], ['edc', 'EDC / QRIS']]], ['needsBank', 'Wajib pilih bank', 'toggle'], ['active', 'Aktif', 'toggle']], blank: () => ({ id: 'p' + Date.now(), label: '', kind: 'edc', needsBank: false, active: true }) }],
+                ['chips', 'Daftar bank (untuk kartu debit/kredit)', 'banks', { placeholder: 'Nama bank' }]],
+            validate: (d) => [...blanks(d.payments, 'label', 'Nama metode'), ...uniqueBy(d.payments, 'label', 'Metode'), ...(d.payments.some((p) => p.active) ? [] : ['Minimal satu metode aktif.']), ...(d.payments.filter((p) => p.active && p.kind === 'cash').length <= 1 ? [] : ['Hanya satu metode laci (tunai) yang aktif.']), ...(d.payments.some((p) => p.needsBank && p.active) && !d.banks.length ? ['Isi daftar bank.'] : [])],
+        }),
+        shift: (el) => settingsForm(el, {
+            title: 'Shift & kas', desc: 'Shift terakhir di daftar = tutup hari (settlement EDC).',
+            fields: [['rows', 'Shift', 'shifts', { addLabel: 'Tambah shift', cols: [['name', 'Nama', 'text'], ['from', 'Mulai', 'time'], ['to', 'Selesai', 'time']], blank: () => ({ name: '', from: '07:00', to: '15:00' }) }],
+                ['chips', 'Pecahan uang yang dihitung', 'denominations', { number: true, placeholder: 'mis. 75000', help: 'Koin dihitung sebagai total.' }],
+                ['chips', 'Alasan kas keluar', 'cashReasons.out'], ['chips', 'Alasan kas masuk', 'cashReasons.in']],
+            validate: (d) => [...nonEmpty(d.shifts, 'Shift'), ...blanks(d.shifts, 'name', 'Nama shift'), ...uniqueBy(d.shifts, 'name', 'Shift'), ...nonEmpty(d.denominations, 'Pecahan uang'), ...nonEmpty(d.cashReasons.out, 'Alasan kas keluar')],
+        }),
+        aturan: (el) => settingsForm(el, {
+            title: 'Aturan & keamanan', desc: 'Batas persetujuan: di atasnya kasir perlu PIN karyawan berhak "Menyetujui" (owner/kepala toko).',
+            fields: [money0('Selisih kas perlu persetujuan di atas (Rp)', 'policy.varianceApprovalAbove', 'Selisih berapa pun tetap wajib alasan.'), money0('Kas keluar perlu persetujuan di atas (Rp)', 'policy.cashOutApprovalAbove'),
+                ['number', 'Diskon perlu persetujuan di atas (%)', 'discounts.approvalAbovePct'], ['html', '', '', { html: '' }],
+                ['chips', 'Pilihan diskon cepat', 'discounts.presets', { placeholder: 'mis. 15% atau 5000', help: 'Akhiri dengan % untuk persen, angka saja untuk rupiah.' }],
+                ['toggle', 'Refund perlu hak menyetujui', 'policy.refundNeedsApproval'], ['chips', 'Alasan refund', 'refundReasons'],
+                ['toggle', 'Open bill boleh dialihkan ke shift berikutnya', 'policy.carryOpenBills', { help: 'Mati = shift tidak bisa ditutup selama masih ada open bill.' }],
+                ['toggle', 'Open bill lewat hari perlu persetujuan', 'policy.openBillDayApproval'],
+                ['number', 'Tandai open bill lewat (hari)', 'policy.openBillMaxDays'], ['chips', 'Alasan pembatalan open bill', 'voidReasons'],
+                ['toggle', 'Nama pelanggan wajib', 'policy.requireCustomerName', { help: 'Ditulis di cup & dipanggil saat pesanan siap.' }],
+                ['select', 'Panjang PIN', 'policy.pinLength', { options: [[4, '4 digit'], [5, '5 digit'], [6, '6 digit']], help: 'Mengubah ini mewajibkan PIN semua kasir diganti.' }],
+                ['number', 'Salah PIN maksimal', 'policy.maxPinAttempts'], ['number', 'Lama dikunci (detik)', 'policy.lockSeconds'], ['number', 'Kunci otomatis kasir (menit, 0 = mati)', 'policy.autoLockMinutes']],
+            validate: (d) => {
+                d.policy.pinLength = Number(d.policy.pinLength);
+                const bad = d.staff.filter((s) => Bangku.can(d, s, 'pos') && String(s.pin).length !== d.policy.pinLength);
+                const presetsOk = d.discounts.presets.every((p) => /^\d+(%|)$/.test(String(p).replace(/\./g, '')));
+                return [...(bad.length ? [`PIN ${bad.map((s) => s.name).join(', ')} belum ${d.policy.pinLength} digit — ganti dulu di Karyawan.`] : []), ...(presetsOk ? [] : ['Pilihan diskon harus angka atau angka%.']),
+                    ...(d.policy.maxPinAttempts >= 3 && d.policy.maxPinAttempts <= 10 ? [] : ['Salah PIN maksimal 3–10.']), ...(d.policy.lockSeconds >= 30 ? [] : ['Lama dikunci minimal 30 detik.']), ...(d.discounts.approvalAbovePct >= 0 && d.discounts.approvalAbovePct <= 100 ? [] : ['Batas diskon 0–100%.']), ...(d.policy.openBillMaxDays >= 1 && d.policy.openBillMaxDays <= 30 ? [] : ['Batas umur open bill 1–30 hari.']), ...nonEmpty(d.voidReasons || [], 'Alasan pembatalan open bill')];
+            },
+        }),
+        pelanggan: (el) => settingsForm(el, {
+            title: 'Pelanggan', desc: 'Database pelanggan: kasir mencari dengan nama/no. HP, atau menyimpan pelanggan baru dari kolom nama.',
+            fields: [['toggle', 'Aktifkan database pelanggan di kasir', 'customers.enabled'], ['toggle', 'Tawarkan simpan no. HP', 'customers.askPhone', { help: 'Hanya disimpan bila pelanggan setuju.' }],
+                ['toggle', 'Program poin', 'customers.loyaltyEnabled'], money0('1 poin setiap belanja (Rp)', 'customers.pointPer')],
+            validate: (d) => (d.customers.pointPer >= 1000 ? [] : ['Poin minimal per Rp 1.000.']),
+        }),
+        perangkat: (el) => {
+            const paint = () => {
+                el.innerHTML = `<div class="card"><div class="card-head"><div><h3>Tablet kasir terdaftar</h3><p>Hanya tablet terdaftar yang bisa dipakai masuk dengan PIN. Hapus tablet yang hilang/dijual.</p></div></div>
+                    <div class="card-body">${cfg.devices.length ? `<div class="table-wrap"><table><thead><tr><th>Nama</th><th>Didaftarkan</th><th></th></tr></thead><tbody>${cfg.devices.map((dv, i) => `<tr><td>${esc(dv.name)}</td><td>${fmtDate(dv.registeredAt, { day: 'numeric', month: 'short', year: 'numeric' })}</td><td class="num"><button type="button" class="btn btn-danger" data-del-dev="${i}">Hapus</button></td></tr>`).join('')}</tbody></table></div>` : emptyState('Belum ada tablet.')}
+                    <div class="note">${cfg.pairing ? `Kode pendaftaran aktif untuk <b>${esc(cfg.pairing.deviceName)}</b>: <span class="pair">${esc(cfg.pairing.code)}</span><br>Buka aplikasi kasir di tablet baru, lalu ketik kode ini. Kode sekali pakai.` : 'Tidak ada kode pendaftaran aktif.'}</div>
+                    <div class="toolbar"><input class="input" id="dev-name" placeholder="Nama tablet baru" value="Tablet Kasir ${cfg.devices.length + 1}"><button type="button" class="btn btn-primary" id="gen">Buat kode pendaftaran</button>${cfg.pairing ? '<button type="button" class="btn" id="revoke">Batalkan kode</button>' : ''}</div></div></div>`;
+            };
+            paint();
+            el.onclick = async (e) => {
+                const b = e.target.closest('button'); if (!b) return;
+                if (b.id === 'gen') { const name = $('#dev-name', el).value.trim(); if (!name) { toast('Isi nama tablet'); return; } cfg.pairing = { code: String(Math.floor(100000 + Math.random() * 900000)), deviceName: name }; saveCfg(); paint(); }
+                if (b.id === 'revoke') { cfg.pairing = null; saveCfg(); paint(); }
+                if (b.dataset.delDev !== undefined) { const dv = cfg.devices[b.dataset.delDev]; if (!(await confirmBox('Hapus tablet?', `${dv.name} tidak bisa dipakai lagi sampai didaftarkan ulang.`, 'Hapus', true))) return; cfg.devices.splice(Number(b.dataset.delDev), 1); saveCfg(); paint(); }
+            };
+        },
+        data: (el) => {
+            el.innerHTML = `<div class="card"><div class="card-head"><div><h3>Data mockup</h3><p>Disimpan di browser perangkat ini. Di aplikasi nanti: database server + cadangan otomatis.</p></div></div>
+                <div class="card-body"><div class="toolbar"><button type="button" class="btn" data-seed>Isi data contoh 14 hari</button><button type="button" class="btn btn-danger" id="wipe">Hapus transaksi, shift & pelanggan</button><button type="button" class="btn btn-danger" id="reset-cfg">Kembalikan pengaturan bawaan</button></div>
+                <p class="hint">${sales().length} transaksi · ${closedShifts().length} shift · ${Bangku.customers.all().length} pelanggan tersimpan.</p></div></div>`;
+            $('#wipe', el).addEventListener('click', async () => { if (!(await confirmBox('Hapus semua data?', 'Transaksi, riwayat shift, shift berjalan, dan pelanggan dihapus dari perangkat ini.', 'Hapus semua', true))) return; ['sales', 'shifts', 'shift', 'customers', 'held', 'voids', 'last', 'queue', 'handover', 'draft'].forEach((k) => data.remove(k)); toast('Data dihapus'); render(); });
+            $('#reset-cfg', el).addEventListener('click', async () => { if (!(await confirmBox('Kembalikan pengaturan bawaan?', 'Menu, varian, karyawan, peran, dan semua aturan kembali ke contoh awal. Data transaksi tidak terhapus.', 'Kembalikan', true))) return; Bangku.resetConfig(); toast('Pengaturan bawaan dipulihkan'); render(); });
+        },
+    };
+
+    window.__admin = { seedDemo, render };
+    render();
+})();
+</script>
+</body>
+</html>

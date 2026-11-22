@@ -1,0 +1,103 @@
+/* Token & dasar bersama mockup Bangku Coffee (masuk.html, admin.html). Gaya shadcn, warna utama cokelat kopi. */
+:root {
+    --background: #ffffff;
+    --foreground: #1c1917;
+    --card: #ffffff;
+    --muted: #f5f5f4;
+    --muted-foreground: #78716c;
+    --border: #e7e5e4;
+    --input: #e7e5e4;
+    --primary: #6f4e37;
+    --primary-foreground: #fffaf5;
+    --accent: #f5efe9;
+    --ring: #a8866b;
+    --destructive: #dc2626;
+    --success: #15803d;
+    --warning: #a16207;
+    --sidebar: #fafaf9;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --shadow-xs: 0 1px 2px rgba(28, 25, 23, 0.05);
+    --font: 'Geist', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+    --tap: 48px;
+    --tap-min: 44px;
+    color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --background: #0c0a09; --foreground: #fafaf9; --card: #161412; --muted: #1f1c1a; --muted-foreground: #a8a29e;
+        --border: #2b2724; --input: #3a3531; --primary: #c69c6d; --primary-foreground: #1c1410; --accent: #2a221c;
+        --sidebar: #110f0e; --warning: #eab308; color-scheme: dark;
+    }
+}
+:root[data-theme="dark"] {
+    --background: #0c0a09; --foreground: #fafaf9; --card: #161412; --muted: #1f1c1a; --muted-foreground: #a8a29e;
+    --border: #2b2724; --input: #3a3531; --primary: #c69c6d; --primary-foreground: #1c1410; --accent: #2a221c;
+    --sidebar: #110f0e; --warning: #eab308; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+    margin: 0; background: var(--sidebar); color: var(--foreground); font: 14px/1.45 var(--font);
+    -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; touch-action: manipulation; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+svg.i { width: 16px; height: 16px; flex: none; }
+h1, h2, h3, h4 { margin: 0; letter-spacing: -0.01em; }
+p { margin: 0; }
+
+.btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 14px;
+    border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--background);
+    font-weight: 500; white-space: nowrap; text-decoration: none; box-shadow: var(--shadow-xs);
+}
+.btn:hover { background: var(--accent); }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
+.btn-primary:hover { background: var(--primary); filter: brightness(1.08); }
+.btn-ghost { border-color: transparent; background: transparent; box-shadow: none; }
+.btn-danger { color: var(--destructive); }
+.btn[disabled] { opacity: .5; cursor: not-allowed; filter: none; }
+.icon-btn { width: 36px; height: 36px; display: inline-grid; place-items: center; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--background); }
+.icon-btn:hover { background: var(--accent); }
+
+.input, .select, .textarea {
+    width: 100%; height: 36px; padding: 0 10px; border: 1px solid var(--input); border-radius: var(--radius-sm);
+    background: var(--background); box-shadow: var(--shadow-xs);
+}
+.textarea { height: auto; min-height: 72px; padding: 8px 10px; resize: vertical; }
+.input:focus, .select:focus, .textarea:focus { outline: none; border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 25%, transparent); }
+.field { display: grid; gap: 6px; min-width: 0; }
+.field > span, .label { font-weight: 500; font-size: 13px; }
+.field small, .hint { color: var(--muted-foreground); font-size: 12px; }
+.badge { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--border); font-size: 12px; font-weight: 500; white-space: nowrap; }
+.badge.ok { color: var(--success); border-color: color-mix(in oklab, var(--success) 35%, transparent); }
+.badge.bad { color: var(--destructive); border-color: color-mix(in oklab, var(--destructive) 35%, transparent); }
+.badge.warn { color: var(--warning); border-color: color-mix(in oklab, var(--warning) 40%, transparent); }
+.badge.muted { color: var(--muted-foreground); }
+
+.switch { position: relative; width: 40px; height: 22px; border-radius: 999px; border: 0; padding: 0; background: var(--input); flex: none; transition: background .15s; }
+.switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 999px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .15s; }
+.switch[aria-checked='true'] { background: var(--primary); }
+.switch[aria-checked='true']::after { transform: translateX(18px); }
+
+.toast {
+    position: fixed; left: 50%; top: 12px; transform: translateX(-50%); z-index: 90; max-width: calc(100vw - 32px);
+    padding: 10px 14px; border-radius: var(--radius-sm); background: var(--foreground); color: var(--background);
+    font-weight: 500; box-shadow: 0 10px 30px rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+.toast.show { opacity: 1; }
+
+dialog {
+    border: 1px solid var(--border); border-radius: 14px; padding: 0; width: min(520px, calc(100vw - 24px));
+    max-height: calc(100% - 24px); background: var(--background); color: var(--foreground); box-shadow: 0 20px 50px rgba(0,0,0,.2);
+}
+dialog::backdrop { background: rgba(12, 10, 9, .45); }
+.dlg-head { padding: 18px 20px 6px; }
+.dlg-head p { color: var(--muted-foreground); font-size: 13px; margin-top: 2px; }
+.dlg-body { padding: 10px 20px 16px; display: grid; gap: 14px; }
+.dlg-foot { padding: 12px 20px 16px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--border); flex-wrap: wrap; }

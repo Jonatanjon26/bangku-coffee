@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Masuk · Bangku Coffee</title>
+<link rel="stylesheet" href="shared/base.css">
+<style>
+/*
+ * Masuk ke aplikasi kasir (tablet): daftarkan perangkat (sekali) → pilih kasir → PIN.
+ * Kasir, peran, panjang PIN, batas salah PIN & lama kunci diatur di admin.html (shared/config.js).
+ */
+body { overscroll-behavior: none; touch-action: manipulation; font-size: 15px; }
+button { user-select: none; -webkit-user-select: none; }
+button:active:not([disabled]) { transform: scale(.97); }
+.login { display: grid; grid-template-columns: minmax(280px, 38%) minmax(0, 1fr); height: 100dvh; }
+.brand-side {
+    display: flex; flex-direction: column; gap: 24px; padding: max(28px, env(safe-area-inset-top)) 32px 28px max(32px, env(safe-area-inset-left));
+    background: var(--primary); color: var(--primary-foreground); position: relative; overflow: hidden;
+}
+.brand-side::after { content: ''; position: absolute; right: -120px; bottom: -120px; width: 360px; height: 360px; border-radius: 50%; border: 48px solid color-mix(in oklab, var(--primary-foreground) 8%, transparent); }
+.logo { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 18px; }
+.logo-icon { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: color-mix(in oklab, var(--primary-foreground) 16%, transparent); }
+.logo-icon svg { width: 22px; height: 22px; }
+.logo small { display: block; font-weight: 400; font-size: 13px; opacity: .8; }
+.clock { font-size: clamp(48px, 7vw, 84px); font-weight: 700; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+.date { opacity: .85; margin-top: 6px; }
+.status { display: grid; gap: 10px; margin-top: auto; position: relative; z-index: 1; }
+.status-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius); background: color-mix(in oklab, var(--primary-foreground) 10%, transparent); font-size: 14px; }
+.status-row .dot { width: 8px; height: 8px; border-radius: 999px; background: #a8a29e; flex: none; }
+.status-row .dot.on { background: #4ade80; }
+.admin-link { display: inline-flex; align-items: center; gap: 6px; min-height: var(--tap-min); color: inherit; font-weight: 600; text-decoration: none; position: relative; z-index: 1; }
+.admin-link:hover { text-decoration: underline; }
+
+.main-side { position: relative; display: grid; place-items: center; padding: 24px max(24px, env(safe-area-inset-right)) 24px 24px; background: var(--background); overflow-y: auto; }
+.top-actions { position: absolute; top: max(16px, env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right)); display: flex; gap: 8px; }
+.top-actions .icon-btn { width: var(--tap-min); height: var(--tap-min); }
+.panel { width: min(560px, 100%); display: grid; gap: 20px; }
+.panel h1 { font-size: 26px; }
+.panel .sub { color: var(--muted-foreground); margin-top: 4px; }
+.notice { padding: 10px 14px; border-radius: var(--radius); background: var(--accent); font-size: 14px; }
+.people { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.person {
+    display: grid; justify-items: center; gap: 8px; padding: 18px 12px; min-height: 140px;
+    border: 1px solid var(--border); border-radius: 14px; background: var(--background); box-shadow: var(--shadow-xs);
+}
+.person:hover { border-color: var(--ring); background: var(--accent); }
+.avatar { width: 56px; height: 56px; border-radius: 999px; display: grid; place-items: center; font-weight: 700; font-size: 20px; color: #fff; }
+.person b { font-size: 16px; }
+.person > span:not(.avatar) { color: var(--muted-foreground); font-size: 13px; }
+.empty { padding: 24px; text-align: center; color: var(--muted-foreground); border: 1px dashed var(--border); border-radius: var(--radius); }
+
+.pin-card { display: grid; justify-items: center; gap: 14px; }
+.pin-card .avatar { width: 72px; height: 72px; font-size: 26px; }
+.dots { display: flex; gap: 14px; height: 20px; align-items: center; }
+.dots i { width: 16px; height: 16px; border-radius: 999px; border: 2px solid var(--muted-foreground); }
+.dots i.on { background: var(--foreground); border-color: var(--foreground); }
+.dots.shake { animation: shake .3s; }
+@keyframes shake { 0%, 100% { transform: none; } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+.pin-msg { min-height: 20px; font-weight: 600; color: var(--destructive); text-align: center; }
+.pin-msg.ok { color: var(--muted-foreground); font-weight: 500; }
+.keypad { display: grid; grid-template-columns: repeat(3, 84px); gap: 12px; }
+.keypad button { height: 72px; border-radius: 999px; border: 1px solid var(--border); background: var(--background); font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.keypad button:active:not([disabled]) { background: var(--accent); }
+.keypad button.ghost { border-color: transparent; font-size: 15px; font-weight: 600; color: var(--muted-foreground); }
+.keypad[aria-disabled='true'] button:not(.ghost) { opacity: .35; }
+.pair-code { font-size: 34px; letter-spacing: .3em; font-weight: 700; font-variant-numeric: tabular-nums; min-height: 48px; }
+
+/* Tegak (atau layar sempit): kolom merek jadi baris atas. Mendatar pendek (Tab A9) tetap dua kolom. */
+@media (max-width: 899px) and (orientation: portrait), (max-width: 599px) {
+    .login { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; height: auto; min-height: 100dvh; }
+    .brand-side { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 16px max(16px, env(safe-area-inset-left)); }
+    .brand-side::after { display: none; }
+    .clock { font-size: 32px; }
+    .date { margin-top: 0; font-size: 13px; }
+    .status { margin-top: 0; width: 100%; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+    .main-side { align-items: start; padding: 72px max(16px, env(safe-area-inset-right)) 24px max(16px, env(safe-area-inset-left)); }
+    .top-actions { position: absolute; }
+}
+@media (max-height: 620px) and (orientation: landscape) {
+    .brand-side { gap: 16px; padding-top: 20px; padding-bottom: 20px; }
+    .clock { font-size: 52px; }
+    .keypad button { height: 58px; }
+    .keypad { gap: 8px; }
+    .pin-card { gap: 8px; }
+    .pin-card .avatar { width: 56px; height: 56px; font-size: 20px; }
+    .main-side { padding-top: 64px; }
+}
+</style>
+</head>
+<body>
+<div class="login">
+    <aside class="brand-side">
+        <div class="logo">
+            <span class="logo-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><path d="M6 2v2M10 2v2M14 2v2"/></svg></span>
+            <span><span id="store-name"></span><small>Aplikasi kasir</small></span>
+        </div>
+        <div><div class="clock" id="clock">--:--</div><div class="date" id="date"></div></div>
+        <div class="status">
+            <div class="status-row"><span class="dot" id="device-dot"></span><span id="device-label"></span></div>
+            <div class="status-row"><span class="dot" id="shift-dot"></span><span id="shift-label"></span></div>
+            <a class="admin-link" href="admin.html">Panel admin (owner & kepala toko) →</a>
+        </div>
+    </aside>
+
+    <main class="main-side">
+        <div class="top-actions">
+            <button class="icon-btn" id="theme" type="button" aria-label="Ganti tema terang/gelap"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
+        </div>
+
+        <!-- 1. Daftarkan perangkat (sekali per tablet) -->
+        <section class="panel" id="step-pair" hidden>
+            <div><h1>Daftarkan tablet ini</h1><p class="sub">Masukkan kode dari <b>Panel admin › Pengaturan › Perangkat</b>. PIN kasir hanya berlaku di tablet terdaftar.</p></div>
+            <div class="pin-card">
+                <output class="pair-code" id="pair-code">––––––</output>
+                <p class="pin-msg ok" id="pair-msg"></p>
+                <div class="keypad" id="pair-keypad"></div>
+            </div>
+        </section>
+
+        <!-- 2. Pilih kasir -->
+        <section class="panel" id="step-people" hidden>
+            <p class="notice" id="locked-notice" hidden>Kasir dikunci. Shift tetap berjalan — siapa pun yang bertugas bisa masuk lagi.</p>
+            <div><h1>Siapa yang bertugas?</h1><p class="sub">Ketuk nama Anda, lalu masukkan PIN.</p></div>
+            <div class="people" id="people"></div>
+        </section>
+
+        <!-- 3. PIN -->
+        <section class="panel" id="step-pin" hidden>
+            <div class="pin-card">
+                <span class="avatar" id="pin-avatar"></span>
+                <div style="text-align: center"><h1 id="pin-name"></h1><p class="sub" id="pin-role"></p></div>
+                <div class="dots" id="dots" aria-live="polite"></div>
+                <p class="pin-msg" id="pin-msg"></p>
+                <div class="keypad" id="pin-keypad"></div>
+            </div>
+        </section>
+    </main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="shared/config.js"></script>
+<script>
+(() => {
+    'use strict';
+    const cfg = Bangku.config();
+    const { data, esc } = Bangku;
+    const $ = (s) => document.querySelector(s);
+    const P = cfg.policy;
+    const pinLength = Number(P.pinLength) || 4;
+    const COLORS = ['#6f4e37', '#0f766e', '#7c3aed', '#c2410c', '#1d4ed8', '#be185d', '#4d7c0f'];
+    const initials = (n) => n.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+    const colorOf = (id) => COLORS[[...id].reduce((n, c) => n + c.charCodeAt(0), 0) % COLORS.length];
+    const haptic = (ms = 8) => { try { navigator.vibrate && navigator.vibrate(ms); } catch { /* tidak didukung */ } };
+    let toastTimer;
+    const toast = (msg) => { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2400); };
+
+    Bangku.initTheme($('#theme'));
+    document.title = 'Masuk · ' + cfg.store.name;
+    $('#store-name').textContent = cfg.store.name;
+
+    const device = () => cfg.devices.find((d) => d.id === data.get('device', ''));
+    function renderStatus() {
+        const d = device();
+        $('#device-dot').classList.toggle('on', !!d);
+        $('#device-label').textContent = d ? d.name : 'Perangkat belum terdaftar';
+        const s = data.get('shift', null);
+        $('#shift-dot').classList.toggle('on', !!s);
+        $('#shift-label').textContent = s ? `Shift ${s.name} dibuka ${s.cashier} · ${new Date(s.openedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}` : 'Belum ada shift dibuka';
+    }
+    const tick = () => {
+        const now = new Date();
+        $('#clock').textContent = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        $('#date').textContent = now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    };
+    tick(); setInterval(tick, 10000);
+
+    const show = (id) => ['#step-pair', '#step-people', '#step-pin'].forEach((s) => { $(s).hidden = s !== id; });
+    const keypadHtml = (left) => ['1', '2', '3', '4', '5', '6', '7', '8', '9', left, '0', 'back']
+        .map((k) => k === '' ? '<span></span>' : `<button type="button" data-k="${k}" class="${k.length > 1 ? 'ghost' : ''}" ${k === 'back' ? 'aria-label="Hapus satu angka"' : ''}>${k === 'back' ? '⌫' : k === 'cancel' ? 'Batal' : k}</button>`).join('');
+
+    /* ---------- 1. daftarkan perangkat ---------- */
+    let pairValue = '';
+    $('#pair-keypad').innerHTML = keypadHtml('');
+    const renderPair = () => { $('#pair-code').textContent = pairValue.padEnd(6, '–'); };
+    $('#pair-keypad').addEventListener('click', (e) => {
+        const k = e.target.closest('[data-k]')?.dataset.k;
+        if (!k) return;
+        haptic();
+        pairValue = k === 'back' ? pairValue.slice(0, -1) : (pairValue + k).slice(0, 6);
+        renderPair();
+        if (pairValue.length < 6) return;
+        if (cfg.pairing && pairValue === String(cfg.pairing.code)) {
+            const d = { id: 'd' + Date.now(), name: cfg.pairing.deviceName || 'Tablet kasir', registeredAt: new Date().toISOString() };
+            cfg.devices.push(d);
+            cfg.pairing = null; // kode sekali pakai
+            Bangku.saveConfig(cfg);
+            data.set('device', d.id);
+            toast(`${d.name} terdaftar`);
+            start();
+        } else {
+            $('#pair-msg').textContent = 'Kode salah atau sudah dipakai';
+            $('#pair-msg').classList.remove('ok');
+            pairValue = '';
+            renderPair();
+            haptic(60);
+        }
+    });
+
+    /* ---------- 2. pilih kasir ---------- */
+    const posStaff = () => cfg.staff.filter((s) => Bangku.can(cfg, s, 'pos'));
+    function renderPeople() {
+        const list = posStaff();
+        $('#people').innerHTML = list.length ? list.map((s) => `<button type="button" class="person" data-staff="${esc(s.id)}">
+                <span class="avatar" style="background:${colorOf(s.id)}">${esc(initials(s.name))}</span><b>${esc(s.name)}</b><span>${esc(Bangku.roleOf(cfg, s).name)}</span>
+            </button>`).join('') : '<p class="empty">Belum ada karyawan dengan akses kasir. Tambahkan di Panel admin › Karyawan.</p>';
+    }
+    $('#people').addEventListener('click', (e) => { const b = e.target.closest('[data-staff]'); if (b) openPin(cfg.staff.find((s) => s.id === b.dataset.staff)); });
+
+    /* ---------- 3. PIN (salah berulang → dikunci sementara) ---------- */
+    let who = null;
+    let value = '';
+    let lockTimer = null;
+    $('#pin-keypad').innerHTML = keypadHtml('cancel');
+    const locks = () => data.get('pinLocks', {});
+    const lockedUntil = (id) => (locks()[id] && locks()[id].until) || 0;
+    function renderDots(bad) {
+        $('#dots').innerHTML = Array.from({ length: pinLength }, (_, i) => `<i class="${i < value.length ? 'on' : ''}"></i>`).join('');
+        if (bad) { $('#dots').classList.remove('shake'); void $('#dots').offsetWidth; $('#dots').classList.add('shake'); }
+    }
+    function renderLock() {
+        clearInterval(lockTimer);
+        const update = () => {
+            const left = Math.ceil((lockedUntil(who.id) - Date.now()) / 1000);
+            const locked = left > 0;
+            $('#pin-keypad').setAttribute('aria-disabled', String(locked));
+            $('#pin-keypad').querySelectorAll('button:not(.ghost)').forEach((b) => { b.disabled = locked; });
+            if (locked) { $('#pin-msg').textContent = `Terlalu banyak salah. Coba lagi dalam ${left} detik.`; $('#pin-msg').classList.remove('ok'); }
+            else { clearInterval(lockTimer); if ($('#pin-msg').textContent.startsWith('Terlalu')) { $('#pin-msg').textContent = ''; } }
+        };
+        update();
+        lockTimer = setInterval(update, 1000);
+    }
+    function openPin(staff) {
+        who = staff;
+        value = '';
+        $('#pin-avatar').textContent = initials(staff.name);
+        $('#pin-avatar').style.background = colorOf(staff.id);
+        $('#pin-name').textContent = staff.name;
+        $('#pin-role').textContent = `${Bangku.roleOf(cfg, staff).name} · masukkan PIN ${pinLength} digit · contoh: ${staff.pin}`;
+        $('#pin-msg').textContent = '';
+        renderDots();
+        show('#step-pin');
+        renderLock();
+    }
+    $('#pin-keypad').addEventListener('click', (e) => {
+        const k = e.target.closest('[data-k]')?.dataset.k;
+        if (!k) return;
+        if (k === 'cancel') { clearInterval(lockTimer); show('#step-people'); return; }
+        if (lockedUntil(who.id) > Date.now()) return;
+        haptic();
+        value = k === 'back' ? value.slice(0, -1) : (value + k).slice(0, pinLength);
+        $('#pin-msg').textContent = '';
+        renderDots();
+        if (value.length < pinLength) return;
+        const all = locks();
+        if (value === String(who.pin)) {
+            delete all[who.id];
+            data.set('pinLocks', all);
+            Bangku.session.start(who);
+            location.href = 'kasir.html';
+            return;
+        }
+        const fails = ((all[who.id] && all[who.id].fails) || 0) + 1;
+        const max = Number(P.maxPinAttempts) || 5;
+        all[who.id] = fails >= max ? { fails: 0, until: Date.now() + (Number(P.lockSeconds) || 60) * 1000 } : { fails, until: 0 };
+        data.set('pinLocks', all);
+        value = '';
+        renderDots(true);
+        haptic(60);
+        if (fails >= max) renderLock();
+        else { $('#pin-msg').textContent = `PIN salah · sisa ${max - fails} percobaan`; $('#pin-msg').classList.remove('ok'); }
+    });
+
+    function start() {
+        renderStatus();
+        if (!device()) { show('#step-pair'); $('#pair-msg').textContent = cfg.pairing ? `Mockup: kode contoh ${cfg.pairing.code}` : 'Minta kode baru di Panel admin.'; renderPair(); return; }
+        // Sudah masuk & masih aktif: langsung ke kasir.
+        if (Bangku.session.staff(cfg) && !new URLSearchParams(location.search).has('locked')) { location.replace('kasir.html'); return; }
+        $('#locked-notice').hidden = !new URLSearchParams(location.search).has('locked');
+        renderPeople();
+        show('#step-people');
+    }
+    start();
+})();
+</script>
+</body>
+</html>

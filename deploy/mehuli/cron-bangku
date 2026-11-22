@@ -1,0 +1,7 @@
+# Dipasang deploy/mehuli/provision.sh ke /etc/cron.d/bangku
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+CRON_TZ=Asia/Jakarta
+
+# Backup harian 02.30 WIB (pg_dump + foto menu, simpan 30 hari) — setelah backup SLB Budidaya 02.00.
+30 2 * * * bangku /var/www/bangku/backup.sh >> /var/log/bangku/backup.log 2>&1

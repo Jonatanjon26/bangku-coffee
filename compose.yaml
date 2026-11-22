@@ -1,0 +1,75 @@
+# Pengembangan lokal Bangku Coffee POS di atas dev-platform (../../_platform/dev-platform).
+# Nyalakan platform dulu: `make -C ../../_platform/dev-platform up`
+#   Admin:  http://bangku.localhost/admin
+#   Kasir:  http://bangku.localhost/masuk
+#   Vite:   http://vite.bangku.localhost   (HMR)
+#
+#   docker compose up -d                       app + vite
+#   docker compose --profile worker up -d      + queue:work & schedule:work
+#   docker compose exec app php artisan test
+#
+# Nilai di `environment` menimpa .env hanya di dalam container, sehingga .env yang sama
+# tetap bisa dipakai `php artisan` dari Mac (DB `bangku` di 127.0.0.1:54320).
+# DB_CONNECTION & DB_DATABASE sengaja tidak ditimpa: phpunit.xml memakai SQLite :memory:.
+name: bangku
+
+x-php-env: &php-env
+  APP_URL: http://bangku.localhost
+  DB_HOST: postgres
+  DB_PORT: "5432"
+
+x-php: &php
+  image: dev-php:8.4
+  working_dir: /app
+  volumes:
+    - .:/app
+  environment: *php-env
+  networks: [platform]
+  restart: unless-stopped
+
+networks:
+  platform:
+    external: true
+
+volumes:
+  node_modules:
+
+services:
+  app:
+    <<: *php
+    # Nama `app` dipakai semua project di network platform; alias ini yang unik.
+    networks:
+      platform:
+        aliases: [bangku-app]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.bangku.rule=Host(`bangku.localhost`)
+      - traefik.http.services.bangku.loadbalancer.server.port=80
+
+  queue:
+    <<: *php
+    command: ["php", "artisan", "queue:work", "--tries=3", "--sleep=3"]
+    profiles: [worker]
+
+  scheduler:
+    <<: *php
+    command: ["php", "artisan", "schedule:work"]
+    profiles: [worker]
+
+  vite:
+    image: node:24-alpine
+    # Dipasang di /bangku-coffee (nama di package-lock.json) supaya npm tidak mengganti "name"-nya;
+    # node_modules Linux di volume, terpisah dari node_modules macOS di host.
+    working_dir: /bangku-coffee
+    volumes:
+      - .:/bangku-coffee
+      - node_modules:/bangku-coffee/node_modules
+    environment:
+      VITE_DEV_ORIGIN: http://vite.bangku.localhost
+    command: ["sh", "-c", "npm install --no-audit --no-fund && npm run dev -- --host 0.0.0.0 --port 5173 --strictPort"]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.bangku-vite.rule=Host(`vite.bangku.localhost`)
+      - traefik.http.services.bangku-vite.loadbalancer.server.port=5173
+    networks: [platform]
+    restart: unless-stopped

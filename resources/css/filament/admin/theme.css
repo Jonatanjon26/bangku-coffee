@@ -1,0 +1,32 @@
+/*
+ * Salin ke: resources/css/filament/admin/theme.css
+ * (ganti "admin" dengan ID panel Anda)
+ *
+ * Path di bawah relatif terhadap lokasi file ini. Kalau package dipasang
+ * sebagai path repository (mis. packages/filament-shadcn), composer membuat
+ * symlink di vendor/mehuli/filament-shadcn, jadi path ini tetap berlaku.
+ */
+
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+@import '../../../../vendor/mehuli/filament-shadcn/resources/css/index.css';
+
+@source '../../../../app/Filament/**/*';
+@source '../../../../resources/views/filament/**/*';
+@source '../../../../vendor/mehuli/filament-shadcn/src/**/*';
+@source '../../../../vendor/mehuli/filament-shadcn/resources/views/**/*';
+
+/*
+ * Tambahan khusus proyek di bawah ini. Pakai token shadcn, mis.:
+ *
+ * .fi-header-heading { color: var(--primary); }
+ */
+
+/*
+ * Sakelar sejajar dengan teks label. Filament memberi -my-0.5 untuk sakelar h-6 (24px) di baris 20px;
+ * filament-shadcn mengecilkan sakelar jadi 1.15rem, jadi margin negatif itu membuatnya naik ±2,6px.
+ * Margin = (tinggi baris label − tinggi sakelar) / 2.
+ */
+.fi-fo-field .fi-fo-field-label > .fi-toggle,
+.fi-fo-field .fi-fo-field-label-ctn > .fi-toggle {
+    margin-block: calc((1.25rem - 1.15rem) / 2);
+}

@@ -1,0 +1,13 @@
+# Salin ke /etc/mysql/mysql.conf.d/zz-bangku.cnf (MySQL) atau /etc/mysql/mariadb.conf.d/99-bangku.cnf (MariaDB),
+# lalu: sudo systemctl restart mysql   (atau mariadb)
+[mysqld]
+# Migrasi membuat trigger yang mengunci log audit (hanya-tambah). Dengan binary log aktif (bawaan MySQL 8+),
+# user aplikasi biasa ditolak membuat trigger (error 1419) tanpa pengaturan ini.
+log_bin_trust_function_creators = 1
+
+# Hanya dari server ini (aplikasi & backup berjalan di VPS yang sama).
+bind-address = 127.0.0.1
+
+character-set-server = utf8mb4
+collation-server = utf8mb4_unicode_ci
+default-time-zone = '+07:00'
