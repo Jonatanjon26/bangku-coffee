@@ -56,4 +56,16 @@ class DeviceTest extends TestCase
         $row->forceFill(['used_at' => now()])->save();
         $this->assertNull(DevicePairingCode::findUsable($code));
     }
+
+    public function test_perangkat_dicabut_bisa_diaktifkan_kembali(): void
+    {
+        [$device, $token] = Device::register('Tablet Kasir 2');
+        $device->revoke();
+        $this->assertTrue($device->fresh()->isRevoked());
+        $this->assertNull(Device::findByToken($token));
+
+        $device->unrevoke();
+        $this->assertFalse($device->fresh()->isRevoked());
+        $this->assertTrue(Device::findByToken($token)->is($device));
+    }
 }

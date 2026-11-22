@@ -59,6 +59,11 @@ class Device extends Model
         $this->forceFill(['revoked_at' => now(), 'revoked_by' => $by?->id])->save();
     }
 
+    public function unrevoke(): void
+    {
+        $this->forceFill(['revoked_at' => null, 'revoked_by' => null])->save();
+    }
+
     public function isRevoked(): bool
     {
         return $this->revoked_at !== null;

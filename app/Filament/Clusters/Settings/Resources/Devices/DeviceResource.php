@@ -61,6 +61,18 @@ class DeviceResource extends Resource
                         $record->revoke(auth()->user());
                         Notification::make()->success()->title($t('revoked_notice'))->send();
                     }),
+                Action::make('unrevoke')
+                    ->label($t('unrevoke'))
+                    ->color('success')
+                    ->icon(Heroicon::OutlinedCheckCircle)
+                    ->requiresConfirmation()
+                    ->modalDescription($t('unrevoke_confirm'))
+                    ->visible(fn (Device $record) => $record->isRevoked())
+                    ->authorize(fn (Device $record) => auth()->user()?->can('update', $record))
+                    ->action(function (Device $record) use ($t) {
+                        $record->unrevoke();
+                        Notification::make()->success()->title($t('unrevoked_notice'))->send();
+                    }),
             ]);
     }
 
