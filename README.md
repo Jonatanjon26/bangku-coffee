@@ -1,3 +1,12 @@
+---
+title: Bangku Coffee POS
+emoji: ☕
+colorFrom: yellow
+colorTo: gray
+sdk: docker
+app_port: 7860
+---
+
 # Bangku Coffee — POS
 
 Aplikasi kasir (point of sale) untuk Bangku Coffee. Mockup (kasir tablet + panel admin) sudah disepakati; aplikasi Laravel sedang dibangun (lihat bagian *Aplikasi*).

@@ -45,11 +45,16 @@ RUN npm ci --ignore-scripts
 
 COPY . .
 
-RUN composer dump-autoload --optimize \
+RUN useradd -m -u 1000 user \
+    && composer dump-autoload --optimize \
     && npm run build \
     && rm -rf node_modules \
-    && chmod +x deploy/render-start.sh
+    && chmod +x deploy/render-start.sh \
+    && chown -R user:user /var/www/html
 
-EXPOSE 8000
+USER user
+
+ENV PORT=7860
+EXPOSE 7860
 
 CMD ["./deploy/render-start.sh"]

@@ -13,6 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->trustProxies(at: '*');
         $middleware->append(SecurityHeaders::class);
         // Tamu di rute admin non-Filament (mis. laporan shift) → halaman login panel.
         $middleware->redirectGuestsTo(fn () => route('filament.admin.auth.login'));
